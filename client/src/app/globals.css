@@ -6,17 +6,17 @@
 
 @layer base {
   :root {
-    --primary: #A729F5;
-    --success: #26D782;
-    --error: #EE5454;
-    --dark-bg: #313E51;
-    --dark-card: #3B4D66;
-    --dark-text: #FFF;
-    --dark-text-secondary: #ABC1E1;
-    --light-bg: #F4F6FA;
-    --light-card: #FFF;
-    --light-text: #313E51;
-    --light-text-secondary: #626C7F;
+    --primary: #a729f5;
+    --success: #26d782;
+    --error: #ee5454;
+    --dark-bg: #313e51;
+    --dark-card: #3b4d66;
+    --dark-text: #fff;
+    --dark-text-secondary: #abc1e1;
+    --light-bg: #f4f6fa;
+    --light-card: #fff;
+    --light-text: #313e51;
+    --light-text-secondary: #626c7f;
   }
 
   * {
@@ -44,17 +44,17 @@
 }
 
 @layer components {
-  .quiz-container {
+  /* .  {
     max-width: 960px;
     margin: 0 auto;
     padding: 2rem;
   }
 
   @media (max-width: 768px) {
-    .quiz-container {
+    .  {
       padding: 1.5rem;
     }
-  }
+  } */
 
   .btn-primary {
     @apply px-6 py-3 bg-primary text-white rounded-lg font-medium hover:opacity-80 transition-opacity;
