@@ -6,14 +6,10 @@ import ThemeProvider from '@/components/ThemeProvider';
 const rubik = Rubik({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Frontend Quiz App',
-  description: 'Test your knowledge with our interactive frontend quiz',
-  viewport: {
-    width: 'device-width',
-    initialScale: 1,
-    maximumScale: 1,
-  },
-};
+  title: 'QuizMe — AI-Powered Document Learning',
+  description:
+    'Transform your documents into interactive learning experiences with AI-generated summaries, Q&A, and quizzes.',
+}
 
 export default function RootLayout({
   children,
