@@ -1,0 +1,95 @@
+@import url('https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700&display=swap');
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: 'Rubik', ui-sans-serif, system-ui, sans-serif;
+
+  --color-primary: #a729f5;
+  --color-success: #26d782;
+  --color-error: #ee5454;
+
+  --color-app-bg: #f4f6fa;
+  --color-app-card: #ffffff;
+  --color-app-text: #313e51;
+  --color-app-text-secondary: #626c7f;
+
+  --image-pattern: url('/assets/images/pattern-background-mobile-light.svg');
+}
+
+@media (min-width: 768px) {
+  :root {
+    --image-pattern: url('/assets/images/pattern-background-tablet-light.svg');
+  }
+}
+@media (min-width: 1024px) {
+  :root {
+    --image-pattern: url('/assets/images/pattern-background-desktop-light.svg');
+  }
+}
+
+.dark {
+  --color-app-bg: #313e51;
+  --color-app-card: #3b4d66;
+  --color-app-text: #ffffff;
+  --color-app-text-secondary: #abc1e1;
+  --image-pattern: url('/assets/images/pattern-background-mobile-dark.svg');
+}
+
+@media (min-width: 768px) {
+  .dark {
+    --image-pattern: url('/assets/images/pattern-background-tablet-dark.svg');
+  }
+}
+@media (min-width: 1024px) {
+  .dark {
+    --image-pattern: url('/assets/images/pattern-background-desktop-dark.svg');
+  }
+}
+
+@layer base {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  html {
+    font-size: 16px;
+    background-color: var(--color-app-bg);
+    color: var(--color-app-text);
+  }
+
+  @media (max-width: 768px) {
+    html {
+      font-size: 14px;
+    }
+  }
+  body {
+    min-height: 100vh;
+    transition:
+      background-color 0.3s,
+      color 0.3s;
+  }
+}
+
+@layer components {
+  .page-pattern {
+    background-image: var(--image-pattern);
+    background-repeat: no-repeat;
+    background-size: cover;
+  }
+  .btn-primary {
+    @apply px-6 py-3 bg-primary text-white rounded-lg font-medium hover:opacity-80;
+  }
+  .btn-secondary {
+    @apply px-6 py-3 bg-app-card text-app-text rounded-lg font-medium border border-transparent hover:border-primary;
+  }
+  .card {
+    @apply bg-app-card rounded-xl lg:rounded-3xl p-4 lg:p-6;
+  }
+  .text-secondary {
+    @apply text-app-text-secondary;
+  }
+}
