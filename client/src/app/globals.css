@@ -1,24 +1,33 @@
+@import "tailwindcss";
 @import url('https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700&display=swap');
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  /* 1. Fonts */
+  --font-sans: "Rubik", ui-sans-serif, system-ui, sans-serif;
+
+  /* 2. Static Colors */
+  --color-primary: #A729F5;
+  --color-success: #26D782;
+  --color-error: #EE5454;
+
+  /* 3. Dynamic Colors (Default/Light values) */
+  --color-app-bg: #F4F6FA;
+  --color-app-card: #FFFFFF;
+  --color-app-text: #313E51;
+  --color-app-text-secondary: #626C7F;
+
+  /* 4. Auto-Swap values when .dark class is present */
+  @variant dark {
+    --color-app-bg: #313E51;
+    --color-app-card: #3B4D66;
+    --color-app-text: #FFFFFF;
+    --color-app-text-secondary: #ABC1E1;
+  }
+}
 
 @layer base {
-  :root {
-    --primary: #a729f5;
-    --success: #26d782;
-    --error: #ee5454;
-    --dark-bg: #313e51;
-    --dark-card: #3b4d66;
-    --dark-text: #fff;
-    --dark-text-secondary: #abc1e1;
-    --light-bg: #f4f6fa;
-    --light-card: #fff;
-    --light-text: #313e51;
-    --light-text-secondary: #626c7f;
-  }
-
   * {
     margin: 0;
     padding: 0;
@@ -27,48 +36,36 @@
 
   html {
     font-size: 16px;
-    color-scheme: light dark;
+    /* Use the dynamic variables for the whole page */
+    background-color: var(--color-app-bg);
+    color: var(--color-app-text);
   }
 
   @media (max-width: 768px) {
-    html {
-      font-size: 14px;
-    }
+    html { font-size: 14px; }
   }
 
   body {
-    font-family: 'Rubik', sans-serif;
-    background-attachment: fixed;
     min-height: 100vh;
+    transition: background-color 0.3s ease, color 0.3s ease;
   }
 }
 
 @layer components {
-  /* .  {
-    max-width: 960px;
-    margin: 0 auto;
-    padding: 2rem;
-  }
-
-  @media (max-width: 768px) {
-    .  {
-      padding: 1.5rem;
-    }
-  } */
-
+  /* No more 'dark:' prefixes needed! */
   .btn-primary {
     @apply px-6 py-3 bg-primary text-white rounded-lg font-medium hover:opacity-80 transition-opacity;
   }
 
   .btn-secondary {
-    @apply px-6 py-3 bg-light-card dark:bg-dark-card text-light-text dark:text-dark-text rounded-lg font-medium hover:bg-light-bg dark:hover:bg-dark-bg transition-colors border border-transparent hover:border-primary;
+    @apply px-6 py-3 bg-app-card text-app-text rounded-lg font-medium transition-colors border border-transparent hover:border-primary;
   }
 
   .card {
-    @apply bg-light-card dark:bg-dark-card rounded-lg p-6 transition-colors;
+    @apply bg-app-card rounded-lg p-6 transition-colors;
   }
 
   .text-secondary {
-    @apply text-light-text-secondary dark:text-dark-text-secondary;
+    @apply text-app-text-secondary;
   }
 }
