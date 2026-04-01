@@ -15,6 +15,8 @@
   --color-app-text: #313e51;
   --color-app-text-secondary: #626c7f;
 
+  --color-app-shadow: #8fa0c1;
+
   --image-pattern: url('/assets/images/pattern-background-mobile-light.svg');
 }
 
@@ -34,6 +36,7 @@
   --color-app-card: #3b4d66;
   --color-app-text: #ffffff;
   --color-app-text-secondary: #abc1e1;
+  --color-app-shadow: #313e51;
   --image-pattern: url('/assets/images/pattern-background-mobile-dark.svg');
 }
 
@@ -87,7 +90,7 @@
     @apply px-6 py-3 bg-app-card text-app-text rounded-lg font-medium border border-transparent hover:border-primary;
   }
   .card {
-    @apply bg-app-card rounded-xl lg:rounded-3xl p-4 lg:p-6;
+    @apply bg-app-card rounded-xl lg:rounded-3xl p-4 lg:p-6 shadow-[0_16px_40px_0_var(--color-app-shadow)/0.14];
   }
   .text-secondary {
     @apply text-app-text-secondary;
