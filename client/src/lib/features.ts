@@ -4,7 +4,7 @@ export const FEATURES: FeatureMeta[] = [
   {
     key: 'view-summary',
     label: 'View Summary',
-    icon: '/icons/summary.svg',
+    icon: '/assets/images/icon-summary.svg',
     bgClass: 'bg-purple-500/15',
     iconClass: 'text-purple-400',
     destinationPath: '/view-summary',
@@ -13,7 +13,7 @@ export const FEATURES: FeatureMeta[] = [
   {
     key: 'ask-questions',
     label: 'Ask Questions',
-    icon: '/icons/questions.svg',
+    icon: '/assets/images/icon-questions.svg',
     bgClass: 'bg-green-400/15',
     iconClass: 'text-green-400',
     destinationPath: '/q-and-a',
@@ -22,7 +22,7 @@ export const FEATURES: FeatureMeta[] = [
   {
     key: 'quiz-time',
     label: 'Quiz Time!',
-    icon: '/icons/quiz.svg',
+    icon: '/assets/images/icon-quiz.svg',
     bgClass: 'bg-blue-400/15',
     iconClass: 'text-blue-400',
     destinationPath: '/quiz',
