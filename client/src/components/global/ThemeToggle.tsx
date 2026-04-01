@@ -33,7 +33,7 @@ export default function ThemeToggle() {
 
   return (
     <div className='flex items-center gap-3 md:gap-4 ml-auto'>
-      <div className='relative w-5 h-5 md:w-6 md:h-6 text-light-text-secondary dark:text-dark-text-secondary'>
+      <div className='relative w-5 h-5 md:w-6 md:h-6 text-app-text-secondary dark:text-dark-text-secondary'>
         <Image
           src={
             isDark
@@ -55,7 +55,7 @@ export default function ThemeToggle() {
           className={`absolute w-5 h-5 md:w-6 md:h-6 bg-white rounded-full transition-transform duration-300 ${isDark ? 'translate-x-6 md:translate-x-7' : 'translate-x-1'}`}
         />
       </button>
-      <div className='relative w-5 h-5 md:w-6 md:h-6 text-light-text-secondary dark:text-dark-text-secondary'>
+      <div className='relative w-5 h-5 md:w-6 md:h-6 text-app-text-secondary dark:text-dark-text-secondary'>
         <Image
           src={
             isDark

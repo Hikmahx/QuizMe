@@ -1,23 +1,20 @@
+'use client';
+
 import Link from 'next/link';
 import ThemeToggle from './ThemeToggle';
 
-interface HeaderProps {
-  title?: string;
-  showBackLink?: boolean;
-}
-
-export default function Header({ title, showBackLink = false }: HeaderProps) {
+export default function Header() {
   return (
-    <div className='flex justify-between items-center my-24'>
-      {title && (
-        <Link
-          href='/'
-          className='text-2xl md:text-3xl font-bold text-light-text dark:text-dark-text hover:text-primary transition-colors'
-        >
-          {title}
-        </Link>
-      )}
+    <header className='flex items-center justify-between px-6 md:px-12 py-6'>
+      <Link href='/' className='flex items-center gap-3 group'>
+        {/* <div className="w-11 h-11 bg-purple-100/20 rounded-xl flex items-center justify-center text-xl">
+          🧠
+        </div> */}
+        <span className='text-app-text text-lg font-medium group-hover:text-purple-300 transition-colors'>
+          QuizMe
+        </span>
+      </Link>
       <ThemeToggle />
-    </div>
+    </header>
   );
 }
