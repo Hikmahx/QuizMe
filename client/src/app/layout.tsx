@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Rubik } from 'next/font/google';
 import './theme.css';
 import ThemeProvider from '@/components/ThemeProvider';
+import Script from 'next/script';
 
 const rubik = Rubik({ subsets: ['latin'] });
 
@@ -26,6 +27,14 @@ export default function RootLayout({
         <div className='relative z-10 max-w-screen-xl mx-auto px-4 lg:px-12 xl:px-[60px]'>
           <ThemeProvider>{children}</ThemeProvider>
         </div>
+        <Script
+          type='module'
+          src='https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js'
+        />
+        <Script
+          noModule
+          src='https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js'
+        />
       </body>
     </html>
   );

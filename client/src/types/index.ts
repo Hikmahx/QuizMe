@@ -33,6 +33,7 @@ export interface SummaryLengthOption {
   description: string
   icon: string
   iconBg: string
+  iconColor: string
 }
 
 export interface SummaryStyleOption {
@@ -41,6 +42,7 @@ export interface SummaryStyleOption {
   description: string
   icon: string
   iconBg: string
+  iconColor: string
 }
 
 // View Summary flow state (persisted to localStorage)

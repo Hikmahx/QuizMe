@@ -3,6 +3,7 @@
 interface OptionCardProps {
   icon: string;
   iconBg: string;
+  iconColor: string;
   label: string;
   description: string;
   selected: boolean;
@@ -12,6 +13,7 @@ interface OptionCardProps {
 export default function OptionCard({
   icon,
   iconBg,
+  iconColor,
   label,
   description,
   selected,
@@ -29,9 +31,13 @@ export default function OptionCard({
     >
       {/* Icon */}
       <span
-        className={`w-11 h-11 rounded-xl flex items-center justify-center text-xl flex-shrink-0 ${iconBg}`}
+        className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${iconBg}`}
       >
-        {icon}
+        <ion-icon
+          name={icon}
+          style={{ fontSize: '24px' }}
+          className={iconColor}
+        ></ion-icon>
       </span>
 
       {/* Text */}

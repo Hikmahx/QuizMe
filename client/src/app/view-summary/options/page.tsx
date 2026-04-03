@@ -70,6 +70,7 @@ function LengthStep() {
                   key={opt.value}
                   icon={opt.icon}
                   iconBg={opt.iconBg}
+                  iconColor={opt.iconColor}
                   label={opt.label}
                   description={opt.description}
                   selected={length === opt.value}
@@ -161,6 +162,7 @@ function StyleStep() {
                   key={opt.value}
                   icon={opt.icon}
                   iconBg={opt.iconBg}
+                  iconColor={opt.iconColor}
                   label={opt.label}
                   description={opt.description}
                   selected={style === opt.value}
