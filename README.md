@@ -6,66 +6,119 @@ This project is designed as an **AI Engineer portfolio project**, showcasing rea
 
 ---
 
+# 🔄 Application Flow
+
+QuizMe follows a consistent, feature-first flow across all pages:
+
+```
+Homepage (pick a feature)
+        ↓
+Upload documents for [feature]
+        ↓
+Feature-specific options
+        ↓
+Results page (with Quiz CTA on every page)
+```
+
+Navigation is tracked via a **breadcrumb trail** in the top-left corner, showing the user's current location at a glance:
+
+```
+QuizMe  ›  📄 View Summary  ›  Long  ›  Doc-by-doc
+```
+
+---
+
 # 🚀 Features (MVP)
+
+---
 
 ### 📄 1. View Summary
 
-* Upload a document (PDF)
-* Generate:
+**Flow:** `Homepage` → `Upload` → `Summary length` → `Summary view` _(multi-doc only)_ → `Summary`
 
-  * Short summary
-  * Medium summary
-  * Long summary
-* Option for:
+#### Summary length options:
 
-  * Combined summary (multi-doc)
-  * Per-document summary
+- **Short** — A quick overview
+- **Medium** — Key points in a balanced summary
+- **Long** — Comprehensive, in-depth breakdown
+
+#### Summary view _(only shown when multiple documents are uploaded)_:
+
+- **Default** - single page summary
+- **Combined** — One unified summary across all documents
+  - If the AI detects the documents are unrelated, it alerts the user and automatically falls back to Doc-by-doc view
+- **Doc-by-doc** — Browse each document's summary separately using ← / → navigation, with the document name shown per page
+
+> For single-document uploads, the summary view step is skipped entirely.
+>
+> File persistence:
+> - Uploaded file metadata is stored in `localStorage` on every step.
+> - Refreshing page keeps the current file list, summary length, and summary view selection.
+> - "Upload different files" button on `/view-summary` redirects to `/?selected=view-summary/upload`.
+>
+#### After the summary is generated:
+
+- A **"Quiz yourself on this"** CTA appears at the bottom, taking the user directly into the Quiz flow pre-loaded with their document context
 
 ---
 
 ### ❓ 2. Ask Questions
 
-* Ask questions about uploaded document(s)
-* AI answers based on document context
+**Flow:** `Homepage` → `Upload` → `Q&A interface`
+
+- Ask questions about uploaded document(s)
+- AI answers based on document context( via RAG later on)
+- **"Quiz yourself"** CTA visible throughout
 
 ---
 
 ### 🧠 3. Quiz Time!
 
-* Automatically generate quizzes from documents:
+**Flow:** `Homepage` → `Upload` → `Quiz options` → `Quiz` → `Score & Feedback`
 
-  * Multiple Choice Questions (MCQs)
-  * Theory questions
+#### Quiz type:
 
-* Answer modes:
-  * ✍️ Written responses
-  * 🎤 Voice responses (speech input via Web Speech API)
+- Multiple Choice Questions (MCQs)
+- Theory / open-ended questions
 
-* 🔊 Read Aloud Toggle:
-  * Questions and AI feedback can be read aloud using the browser's built-in Text-to-Speech engine
-  * Toggle button to start/stop audio at any time
-  * Fully client-side — no backend required
+#### Answer modes:
 
-* AI evaluates:
+- ✍️ Written responses
+- 🎤 Voice responses (speech input via Web Speech API)
 
-  * User answers
-  * Score
-  * Feedback & improvement tips
+#### 🔊 Read Aloud Toggle:
 
-* (Advanced (todo later on) - Voice Analysis):
-  * Detect fluency (pauses, filler words)
-  * Analyze confidence level
-  * Identify speech issues (e.g., stammering patterns)
+- Questions and AI feedback can be read aloud using the browser's built-in Text-to-Speech engine
+- Toggle button to start/stop audio at any time
+- Fully client-side — no backend required
+
+#### AI evaluates:
+
+- User answers
+- Score
+- Feedback & improvement tips
+
+#### Advanced _(planned)_:
+
+- Detect fluency (pauses, filler words)
+- Analyze confidence level
+- Identify speech issues (e.g., stammering patterns)
+
+---
+
+### 🔁 Quiz CTA — Appears on Every Feature Page
+
+The **"Quiz yourself"** button is a persistent feature across all pages — not just the Quiz page. After viewing a summary, getting Q&A answers, or using any future feature, the user is always one tap away from testing their knowledge. This reinforces QuizMe's core purpose: turning passive reading into active learning.
 
 ---
 
 # 🔮 Planned Features (Phase 2+)
 
-* 📌 Key Points Extraction (bullet points / ranked sentences)
-* 📊 Document Comparison (similarities & differences)
-* 📚 FAQ Generator
-* 🧩 DocInsight Mode (all features combined)
-* 🎯 Smart Mode (AI agent decides what to do)
+- 📌 **Key Points Extraction** — Bullet points or ranked sentences by importance
+- 📊 **Document Comparison** — Similarities and differences across docs
+- 📚 **FAQ Generator** — Auto-generate common questions from the document
+- 🧩 **DocInsight Mode** — Upload + Summary + Q&A + Key Points in one flow
+- 🎯 **Smart Mode** — AI agent decides what to do based on user intent
 
 ---
 
@@ -73,21 +126,21 @@ This project is designed as an **AI Engineer portfolio project**, showcasing rea
 
 ## Frontend
 
-* Next.js (App Router)
-* Tailwind CSS
-* React Hooks
-* Web Speech API (Text-to-Speech + Speech Recognition — built into modern browsers)
+- Next.js (App Router)
+- Tailwind CSS
+- React Hooks
+- Web Speech API (Text-to-Speech + Speech Recognition — built into modern browsers)
 
 ## Backend
 
-* Django
-* Django REST Framework
+- Django
+- Django REST Framework
 
 ## AI / ML
 
-* Hugging Face Transformers
-* pdfplumber (PDF text extraction)
-* nltk (text processing)
+- Hugging Face Transformers
+- pdfplumber (PDF text extraction)
+- nltk (text processing)
 
 ---
 
@@ -95,20 +148,18 @@ This project is designed as an **AI Engineer portfolio project**, showcasing rea
 
 ## 🔍 Retrieval-Augmented Generation (RAG)
 
-Retrieval-Augmented Generation
-
-* Documents are split into chunks
-* Stored as embeddings in a vector database
-* Relevant chunks are retrieved during queries
-* LLM generates answers grounded in document context
+- Documents are split into chunks
+- Stored as embeddings in a vector database
+- Relevant chunks are retrieved during queries
+- LLM generates answers grounded in document context
 
 ---
 
 ## 🔊 Voice Interaction (Web Speech API)
 
-* **Text-to-Speech**: Quiz questions and AI-generated feedback can be read aloud using the browser's `SpeechSynthesis` API — no third-party service or backend call required
-* **Speech-to-Text**: Users can answer quiz questions by voice using the browser's `SpeechRecognition` API; the transcript is sent to Django for AI evaluation just like a typed answer
-* Voice interaction is **100% frontend** — Django only receives and processes the final text
+- **Text-to-Speech**: Quiz questions and AI-generated feedback can be read aloud using the browser's `SpeechSynthesis` API — no third-party service or backend call required
+- **Speech-to-Text**: Users can answer quiz questions by voice using the browser's `SpeechRecognition` API; the transcript is sent to Django for AI evaluation just like a typed answer
+- Voice interaction is **100% frontend** — Django only receives and processes the final text
 
 ```
 Browser mic → SpeechRecognition API → transcript text
@@ -124,33 +175,28 @@ Browser mic → SpeechRecognition API → transcript text
 
 ## 🤖 AI Agents (Planned)
 
-AI agent
+- Dynamically decide workflow:
+  - Summarize
+  - Generate quiz
+  - Extract insights
 
-* Dynamically decide workflow:
-
-  * Summarize
-  * Generate quiz
-  * Extract insights
-* Adapts based on user intent
+- Adapts based on user intent
 
 ---
 
 ## 🔗 Model Context Protocol (MCP) (Advanced)
 
-Model Context Protocol
-
-* Structured tool-based interaction layer
-* Enables LLM to:
-
-  * Access document tools
-  * Maintain context
-  * Chain operations
+- Structured tool-based interaction layer
+- Enables LLM to:
+  - Access document tools
+  - Maintain context
+  - Chain operations
 
 ---
 
 # 🏛️ Architecture
 
-```text
+```
 Next.js (Frontend UI)
         ↓
 Django REST API
@@ -164,20 +210,11 @@ LLM (HuggingFace / OpenAI)
 
 ---
 
-# 🔄 Application Flow
+# 📸 UI Design
 
-1. User selects feature (Summary, Q&A, Quiz)
-2. Uploads document(s)
-3. Backend:
-
-   * Extracts text from PDF
-   * Processes based on selected feature
-4. AI generates:
-
-   * Summary / Answers / Quiz
-5. Results returned to frontend and displayed
-6. (Quiz) User answers via text or voice; AI evaluates and returns feedback
-7. (Quiz) Read Aloud toggle lets the user hear questions and feedback
+- Consistent two-column layout across all pages (context left, action right)
+- Breadcrumb navigation in the top-left showing full feature path: [icon] [feature] > [page].
+- "Quiz yourself" CTA card visible after every feature's result
 
 ---
 
@@ -192,9 +229,20 @@ LLM (HuggingFace / OpenAI)
   /q-and-a            # Q&A page
   /quiz               # Quiz page
 /components           # UI components
-  /quiz
+  /shared
+    Breadcrumb.jsx      # Feature path tracker (top-left)
+    QuizCTA.jsx         # "Quiz yourself" persistent CTA
+    ReadAloudBtn.jsx    # TTS toggle button
+    VoiceInput.jsx      # SpeechRecognition input
   /summary
-  /qa
+    LengthPicker.jsx
+    StylePicker.jsx     # Combined vs Doc-by-doc (multi-doc only)
+    DocNavigator.jsx    # ← → navigation with doc name
+    SummaryCard.jsx
+  /quiz
+    QuizCard.jsx
+    AnswerOptions.jsx
+    ScoreCard.jsx
 ```
 
 ---
@@ -224,8 +272,6 @@ git clone https://github.com/hikmahx/quizme.git
 cd quizme
 ```
 
----
-
 ## 2. Backend Setup (Django)
 
 ```bash
@@ -235,8 +281,6 @@ source venv/bin/activate  # Mac/Linux
 pip install -r requirements.txt
 python manage.py runserver
 ```
-
----
 
 ## 3. Frontend Setup (Next.js)
 
@@ -250,20 +294,13 @@ npm run dev
 
 # 🔌 API Endpoints (Sample)
 
-| Endpoint          | Description               |
-| ----------------- | ------------------------- |
-| `/api/summary/`   | Generate document summary |
-| `/api/questions/` | Answer user questions     |
-| `/api/quiz/`      | Generate quiz             |
-
----
-
-# 📸 UI Design
-
-* Inspired by Frontend Mentor Quiz App
-* Dark themed interface
-* Clean, minimal, interactive UI
-* Read Aloud toggle button on each quiz question
+| Endpoint                 | Description                            |
+| ------------------------ | -------------------------------------- |
+| `/api/summary/`          | Generate document summary              |
+| `/api/summary/combined/` | Generate a combined multi-doc summary  |
+| `/api/questions/`        | Answer user questions via RAG          |
+| `/api/quiz/`             | Generate quiz questions from documents |
+| `/api/quiz/evaluate/`    | Evaluate user answer & return feedback |
 
 ---
 
@@ -271,40 +308,39 @@ npm run dev
 
 This project demonstrates:
 
-* Full-stack development (Next.js + Django)
-* Real-world AI system design
-* LLM integration
-* RAG pipeline implementation
-* Voice-enabled UI
-* Scalable architecture
-* User-focused AI experience
+- Full-stack development (Next.js + Django)
+- Real-world AI system design
+- LLM integration
+- RAG pipeline implementation
+- Voice-enabled UI
+- Scalable architecture
+- User-focused AI experience
 
 ---
 
 # 🧠 What I Learned
 
-* How to integrate LLMs into production-ready apps
-* Handling large documents with chunking
-* Building RAG pipelines
-* Designing AI-powered user workflows
-* Connecting frontend with ML backend
-* Implementing voice I/O
+- How to integrate LLMs into production-ready apps
+- Handling large documents with chunking
+- Building RAG pipelines
+- Designing cohesive multi-step UX & AI-powered user flows
+- Implementing voice I/O
 
 ---
 
 # 🔥 Future Improvements
 
-* Add authentication (Supabase/Auth)
-* Store user history & quiz scores
-* Streaming AI responses
-* Advanced voice analysis (fluency, confidence, filler word detection)
-* Deploy with Docker + cloud (AWS/GCP)
+- Add authentication (Supabase / Auth.js)
+- Store user history, quiz scores, and generated summaries
+- Streaming AI responses for real-time feedback
+- Advanced voice analysis (fluency, confidence, filler word detection)
+- Deploy with Docker + cloud (AWS / GCP)
 
 ---
 
 # 👤 Author
 
-Hikmah Yousuph
+**Hikmah Yousuph**
 Full-Stack Developer transitioning into AI Engineering
 
 ---
