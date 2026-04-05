@@ -7,7 +7,7 @@ import TwoColumnLayout from '@/components/global/TwoColumnLayout';
 import Breadcrumb from '@/components/global/Breadcrumb';
 import StepBadge from '@/components/global/StepBadge';
 import ProgressBar from '@/components/global/ProgressBar';
-import OptionCard from '@/components/summary/OptionCard';
+import OptionCard from '@/components/global/OptionCard';
 import InfoList from '@/components/global/InfoList';
 import { FEATURE_MAP } from '@/lib/features';
 import {
