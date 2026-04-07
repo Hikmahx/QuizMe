@@ -2,31 +2,26 @@
 
 QuizMe is an AI-powered web application that transforms documents into interactive learning experiences. Users can upload one or more documents and instantly generate summaries, ask questions, and take AI-generated quizzes to deepen their understanding.
 
-This project is designed as an **AI Engineer portfolio project**, showcasing real-world applications of **LLMs, Retrieval-Augmented Generation (RAG), and AI agent workflows**.
-
 ---
 
 # 🔄 Application Flow
 
-QuizMe follows a consistent, feature-first flow across all pages:
-
 ```
 Homepage (pick a feature)
         ↓
-Upload documents for [feature]
+Upload documents for [feature]   ← /?selected=[feature]/upload
         ↓
 Feature-specific options
         ↓
 Results page (with Quiz CTA on every page)
 ```
 
-Navigation is tracked via a **breadcrumb trail** in the top-left corner, showing the user's current location at a glance:
-
+Breadcrumb trail example:
 ```
-QuizMe  ›  📄 View Summary  ›  Long  ›  Doc-by-doc
+Quiz Time!  ›  MCQ
+View Summary  ›  Long  ›  Doc-by-doc
 ```
 
----
 
 # 🚀 Features (MVP)
 
@@ -36,11 +31,7 @@ QuizMe  ›  📄 View Summary  ›  Long  ›  Doc-by-doc
 
 **Flow:** `Homepage` → `Upload` → `Summary length` → `Summary view` _(multi-doc only)_ → `Summary`
 
-#### Summary length options:
-
-- **Short** — A quick overview
-- **Medium** — Key points in a balanced summary
-- **Long** — Comprehensive, in-depth breakdown
+#### Summary length: Short · Medium · Long
 
 #### Summary view _(only shown when multiple documents are uploaded)_:
 
@@ -49,22 +40,21 @@ QuizMe  ›  📄 View Summary  ›  Long  ›  Doc-by-doc
   - If the AI detects the documents are unrelated, it alerts the user and automatically falls back to Doc-by-doc view
 - **Doc-by-doc** — Browse each document's summary separately using ← / → navigation, with the document name shown per page
 
-> For single-document uploads, the summary view step is skipped entirely.
->
-> File persistence:
-> - Uploaded file metadata is stored in `localStorage` on every step.
-> - Refreshing page keeps the current file list, summary length, and summary view selection.
-> - "Upload different files" button on `/view-summary` redirects to `/?selected=view-summary/upload`.
->
-#### After the summary is generated:
 
-- A **"Quiz yourself on this"** CTA appears at the bottom, taking the user directly into the Quiz flow pre-loaded with their document context
+#### File persistence
+File metadata + base64 `dataUrl` stored in `localStorage` under `quizme:summary-flow`. Refreshing restores all state. Managed by `lib/storage.ts` + `hooks/useSummaryFlow.ts`.
+
+#### "Use different files" button
+On `/view-summary`, clears `localStorage` and redirects to `/?selected=view-summary/upload`.
+
+#### After summary: Quiz CTA
+A "Quiz yourself on this" button in the left column routes to `/?selected=quiz-time/upload`.
 
 ---
 
 ### ❓ 2. Ask Questions
 
-**Flow:** `Homepage` → `Upload` → `Q&A interface`
+**Flow:** `Homepage` → `Upload` → `Q&A`
 
 - Ask questions about uploaded document(s)
 - AI answers based on document context( via RAG later on)
@@ -76,33 +66,80 @@ QuizMe  ›  📄 View Summary  ›  Long  ›  Doc-by-doc
 
 **Flow:** `Homepage` → `Upload` → `Quiz options` → `Quiz` → `Score & Feedback`
 
-#### Quiz type:
+#### Quiz setup options:
 
-- Multiple Choice Questions (MCQs)
-- Theory / open-ended questions
+- **Difficulty** — Easy · Medium · Hard
+- **Number of questions** — 10 · 20 · 30
+- **Question type:**
+  - **MCQ** — pick the correct answer from four options
+  - **Theory** — open-ended; triggers one more step
+- **Answer mode** _(theory only)_:
+  - **Written** — type your answer
+  - **Oral** — speak your answer; AI reads the question aloud first
+
+> All selections are persisted in `localStorage` under `quizme:quiz-flow` via `hooks/useQuizFlow.ts`. Refreshing the page restores all choices.
+
+#### "Are you ready?" page (`/quiz/ready`):
+
+- Summary card of all chosen settings
+- **Start Quiz** button and metadata line sit _below_ the card
+- "Change settings" link returns to the first setup step
+- Oral-mode users see a tip panel explaining the Record / Stop flow
 
 #### Answer modes:
 
-- ✍️ Written responses
-- 🎤 Voice responses (speech input via Web Speech API)
+- **MCQ** — four `A / B / C / D` answer cards.
+- **Written** — written answer input
+- **Oral** — waveform panel (20 animated bars) + manual Record / Stop buttons. See oral flow below
 
-#### 🔊 Read Aloud Toggle:
+#### Oral answer flow:
 
-- Questions and AI feedback can be read aloud using the browser's built-in Text-to-Speech engine
-- Toggle button to start/stop audio at any time
-- Fully client-side — no backend required
+1. AI reads the question aloud — words underlined one-by-one on the left
+2. **"Tap Record when you're ready"** prompt — user controls when to start
+3. User taps **Start Recording** → mic opens, live green bars animate, pulsing red dot + `MM:SS` timer shown
+4. User taps **Stop Recording** (or 60 s safety timeout fires) → "Analysing your response…" spinner (1.5 s)
+5. Full transcript revealed — user reviews it
+6. **Retry button** in the transcript card — clears the recording and resets to step 2 so the user can re-record as many times as needed
+7. If no speech detected — a **Try Again** button is shown prominently
 
-#### AI evaluates:
+```
+SpeechSynthesis reads question → words underlined → phase: 'ready'
+        ↓ [user taps Start Recording]
+getUserMedia → live waveform · SpeechRecognition (continuous, finals only)
+        ↓ [user taps Stop Recording]
+phase: 'analysing' (1.5 s) → transcript shown → Next activates
+        ↓ [optional: Retry]
+transcript cleared → phase: 'ready' → user records again
+        ↓
+POST /api/quiz/evaluate/ → AI grades transcript
+```
+
+> ⚠️ `SpeechRecognition` works best on Chrome / Edge. Firefox support is limited.
+
+#### Score page (`/quiz/score`):
+
+- **Left:** "Quiz completed / You scored…" with accuracy breakdown
+- **Right:** score card (feature icon + large score number + "out of N") · View Feedback · Play Again
+
+
+> File persistence: quiz flow options are stored in `localStorage` and cleared on Play Again.
+
+#### AI evaluates :
 
 - User answers
 - Score
 - Feedback & improvement tips
 
-#### Advanced _(planned)_:
+#### Advanced _(for later)_:
 
 - Detect fluency (pauses, filler words)
 - Analyze confidence level
 - Identify speech issues (e.g., stammering patterns)
+
+#### After the quiz is complete:
+
+- Play Again restarts from `/quiz/options?step=difficulty`
+- View Feedback takes the user to `/quiz/feedback` for a full per-question breakdown
 
 ---
 
@@ -128,8 +165,8 @@ The **"Quiz yourself"** button is a persistent feature across all pages — not 
 
 - Next.js (App Router)
 - Tailwind CSS
-- React Hooks
-- Web Speech API (Text-to-Speech + Speech Recognition — built into modern browsers)
+- TypeScript
+- Web Speech API (TTS + STT)
 
 ## Backend
 
@@ -218,133 +255,21 @@ LLM (HuggingFace / OpenAI)
 
 ---
 
-# 📁 Project Structure
-
-## Frontend (Next.js)
-
-```bash
-/app
-  /page.js            # Homepage
-  /summary            # Summary page
-  /q-and-a            # Q&A page
-  /quiz               # Quiz page
-/components           # UI components
-  /shared
-    Breadcrumb.jsx      # Feature path tracker (top-left)
-    QuizCTA.jsx         # "Quiz yourself" persistent CTA
-    ReadAloudBtn.jsx    # TTS toggle button
-    VoiceInput.jsx      # SpeechRecognition input
-  /summary
-    LengthPicker.jsx
-    StylePicker.jsx     # Combined vs Doc-by-doc (multi-doc only)
-    DocNavigator.jsx    # ← → navigation with doc name
-    SummaryCard.jsx
-  /quiz
-    QuizCard.jsx
-    AnswerOptions.jsx
-    ScoreCard.jsx
-```
-
----
-
-## Backend (Django)
-
-```bash
-/backend
-  /api
-    views.py          # AI logic endpoints
-    urls.py
-  /services
-    summarizer.py
-    qa.py
-    quiz.py
-    rag.py
-```
-
----
-
-# ⚙️ Installation & Setup
-
-## 1. Clone the Repository
+# ⚙️ Setup
 
 ```bash
 git clone https://github.com/hikmahx/quizme.git
-cd quizme
-```
-
-## 2. Backend Setup (Django)
-
-```bash
-cd backend
-python -m venv venv
-source venv/bin/activate  # Mac/Linux
-pip install -r requirements.txt
-python manage.py runserver
-```
-
-## 3. Frontend Setup (Next.js)
-
-```bash
-cd frontend
+cd quizme/client
 npm install
 npm run dev
 ```
 
 ---
 
-# 🔌 API Endpoints (Sample)
-
-| Endpoint                 | Description                            |
-| ------------------------ | -------------------------------------- |
-| `/api/summary/`          | Generate document summary              |
-| `/api/summary/combined/` | Generate a combined multi-doc summary  |
-| `/api/questions/`        | Answer user questions via RAG          |
-| `/api/quiz/`             | Generate quiz questions from documents |
-| `/api/quiz/evaluate/`    | Evaluate user answer & return feedback |
-
----
-
-# 💼 Portfolio Value
-
-This project demonstrates:
-
-- Full-stack development (Next.js + Django)
-- Real-world AI system design
-- LLM integration
-- RAG pipeline implementation
-- Voice-enabled UI
-- Scalable architecture
-- User-focused AI experience
-
----
-
-# 🧠 What I Learned
-
-- How to integrate LLMs into production-ready apps
-- Handling large documents with chunking
-- Building RAG pipelines
-- Designing cohesive multi-step UX & AI-powered user flows
-- Implementing voice I/O
-
----
-
-# 🔥 Future Improvements
-
-- Add authentication (Supabase / Auth.js)
-- Store user history, quiz scores, and generated summaries
-- Streaming AI responses for real-time feedback
-- Advanced voice analysis (fluency, confidence, filler word detection)
-- Deploy with Docker + cloud (AWS / GCP)
-
----
-
 # 👤 Author
 
-**Hikmah Yousuph**
-Full-Stack Developer transitioning into AI Engineering
+**Hikmah Yousuph** — Full-Stack Developer transitioning into AI Engineering
 
 ---
-
-# ⭐ Final Note
 
 QuizMe is more than a project — it's a step toward building intelligent systems that make learning faster, smarter, and more interactive using AI.
