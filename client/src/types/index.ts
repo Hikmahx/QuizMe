@@ -19,7 +19,9 @@ export interface StoredFileMeta {
   name: string
   size: number
   type: string
-  dataUrl: string // base64 data URL — stored so the content survives a refresh
+  dataUrl: string     // base64 data URL — stored so the content survives a refresh
+  source?: 'upload' | 'paste'
+  wordCount?: number  // populated for pasted-text entries
 }
 
 // View Summary

@@ -222,7 +222,7 @@ export function extColourClass(name: string): string {
   const ext = name.split('.').pop()?.toLowerCase();
   if (ext === 'pdf') return 'text-orange-400';
   if (ext === 'docx') return 'text-blue-400';
-  if (ext === 'txt') return 'text-green-400';
+  if (ext === 'txt' || ext === 'md') return 'text-green-400';
   return 'text-gray-400';
 }
 
@@ -235,6 +235,28 @@ export function cleanupDataUrl(dataUrl: string): void {
       // Ignore cleanup errors
     }
   }
+}
+
+/** Convert raw pasted text into a StoredFileMeta (no FileReader needed). */
+export function pasteTextToStoredMeta(
+  text: string,
+  filename: string,
+): StoredFileMeta {
+  const wordCount = text.trim() ? text.trim().split(/\s+/).length : 0;
+  const mimeType = filename.endsWith('.md') ? 'text/markdown' : 'text/plain';
+  // Encode to UTF-8 bytes then base64 (handles emoji / non-ASCII)
+  const bytes = new TextEncoder().encode(text);
+  let binary = '';
+  bytes.forEach((b) => (binary += String.fromCharCode(b)));
+  const dataUrl = `data:${mimeType};base64,${btoa(binary)}`;
+  return {
+    name: filename,
+    size: bytes.length,
+    type: mimeType,
+    dataUrl,
+    source: 'paste',
+    wordCount,
+  };
 }
 
 // Helper to get total size of all stored files
