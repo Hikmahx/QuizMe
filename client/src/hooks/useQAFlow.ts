@@ -40,7 +40,11 @@ function buildScreenPatch(
   files: StoredFileMeta[],
 ): Partial<LeftPanelScreen> {
   if (mode === 'resume' && analysis.agentSteps) {
-    return { type: 'agent-steps', label: 'Resume analysis', agentSteps: analysis.agentSteps };
+    return {
+      type: 'agent-steps',
+      label: 'Resume analysis',
+      agentSteps: analysis.agentSteps,
+    };
   }
   if (mode === 'compare' && analysis.compareRows) {
     return {
@@ -51,7 +55,11 @@ function buildScreenPatch(
     };
   }
   if (mode === 'glossary' && analysis.glossaryEntries) {
-    return { type: 'glossary', label: 'Glossary', glossaryEntries: analysis.glossaryEntries };
+    return {
+      type: 'glossary',
+      label: 'Glossary',
+      glossaryEntries: analysis.glossaryEntries,
+    };
   }
   return {};
 }
@@ -70,7 +78,11 @@ async function fetchChat(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       mode,
-      files: files.map((f) => ({ name: f.name, dataUrl: f.dataUrl, type: f.type })),
+      files: files.map((f) => ({
+        name: f.name,
+        dataUrl: f.dataUrl,
+        type: f.type,
+      })),
       messages,
     }),
     signal,
@@ -109,7 +121,11 @@ async function fetchAnalyze(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       mode,
-      files: files.map((f) => ({ name: f.name, dataUrl: f.dataUrl, type: f.type })),
+      files: files.map((f) => ({
+        name: f.name,
+        dataUrl: f.dataUrl,
+        type: f.type,
+      })),
     }),
   });
   if (!res.ok) throw new Error(`Analyze error ${res.status}`);
@@ -126,7 +142,8 @@ function stripQuizToken(text: string) {
 
 export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
   const [mode, setModeState] = useState<QAMode>(initialMode);
-  const [selectedFiles, setSelectedFiles] = useState<StoredFileMeta[]>(allFiles);
+  const [selectedFiles, setSelectedFiles] =
+    useState<StoredFileMeta[]>(allFiles);
   const [messages, setMessages] = useState<QAChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [isAnalysing, setIsAnalysing] = useState(false);
@@ -141,11 +158,14 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
 
   // Message helpers
 
-  const addMessage = useCallback((msg: Omit<QAChatMessage, 'id' | 'timestamp'>) => {
-    const full: QAChatMessage = { ...msg, id: uid(), timestamp: Date.now() };
-    setMessages((prev) => [...prev, full]);
-    return full.id;
-  }, []);
+  const addMessage = useCallback(
+    (msg: Omit<QAChatMessage, 'id' | 'timestamp'>) => {
+      const full: QAChatMessage = { ...msg, id: uid(), timestamp: Date.now() };
+      setMessages((prev) => [...prev, full]);
+      return full.id;
+    },
+    [],
+  );
 
   const streamIntoMessage = useCallback(
     async (
@@ -159,16 +179,26 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
       setIsStreaming(true);
       let fullText = '';
       try {
-        await fetchChat(mode, files, history, (chunk) => {
-          fullText += chunk;
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === msgId
-                ? { ...m, content: stripQuizToken(fullText), isLoading: false }
-                : m,
-            ),
-          );
-        }, ctrl.signal);
+        await fetchChat(
+          mode,
+          files,
+          history,
+          (chunk) => {
+            fullText += chunk;
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === msgId
+                  ? {
+                      ...m,
+                      content: stripQuizToken(fullText),
+                      isLoading: false,
+                    }
+                  : m,
+              ),
+            );
+          },
+          ctrl.signal,
+        );
 
         setMessages((prev) =>
           prev.map((m) =>
@@ -201,7 +231,13 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
       const greetId = uid();
       setMessages((prev) => [
         ...prev,
-        { id: greetId, role: 'assistant', content: '', isLoading: true, timestamp: Date.now() },
+        {
+          id: greetId,
+          role: 'assistant',
+          content: '',
+          isLoading: true,
+          timestamp: Date.now(),
+        },
       ]);
 
       const history = historySnapshot
@@ -211,8 +247,8 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
           content: m.modeChange
             ? `Mode: ${m.modeChange}`
             : m.fileChange
-            ? `Selected files: ${m.fileChange.join(', ')}`
-            : m.content,
+              ? `Selected files: ${m.fileChange.join(', ')}`
+              : m.content,
         }));
       history.push({ role: 'user', content: greetingPrompt });
 
@@ -231,6 +267,17 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
       // Snapshot messages BEFORE adding the mode-change chip
       const historySnapshot = messages;
       addMessage({ role: 'user', content: '', modeChange: newMode });
+
+      // Compare mode: exactly 2 files required
+      if (newMode === 'compare' && selectedFiles.length !== 2) {
+        const count = selectedFiles.length;
+        const msg =
+          count < 2
+            ? `Compare Mode requires exactly **2 documents**, but you only have **${count}** selected. Please add another document and try again.`
+            : `Compare Mode requires exactly **2 documents**, but you have **${count}** selected. Please deselect some files using the file selector above, then try again.`;
+        addMessage({ role: 'assistant', content: msg });
+        return;
+      }
 
       // Default mode: just navigate to landing screen + greet
       if (newMode === 'default') {
@@ -257,9 +304,9 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
         if (analysis.mismatch) {
           // Error path: no screen created/changed
           if (existingIdx === -1) setCurrentScreenIndex(0);
-          const otherModes = (['default', 'resume', 'compare', 'glossary'] as QAMode[]).filter(
-            (m) => m !== newMode,
-          );
+          const otherModes = (
+            ['default', 'resume', 'compare', 'glossary'] as QAMode[]
+          ).filter((m) => m !== newMode);
           addMessage({
             role: 'assistant',
             content: `The documents you uploaded don't seem to fit **${newMode} mode**. Perhaps try one of the other modes?`,
@@ -302,16 +349,27 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
       } catch (err) {
         if ((err as Error).name !== 'AbortError') {
           if (existingIdx === -1) setCurrentScreenIndex(0);
-          addMessage({ role: 'assistant', content: 'Something went wrong switching modes. Please try again.' });
+          addMessage({
+            role: 'assistant',
+            content: 'Something went wrong switching modes. Please try again.',
+          });
         }
       } finally {
         setIsAnalysing(false);
       }
     },
-    [isAnalysing, isStreaming, messages, selectedFiles, leftScreens, addMessage, greetForMode],
+    [
+      isAnalysing,
+      isStreaming,
+      messages,
+      selectedFiles,
+      leftScreens,
+      addMessage,
+      greetForMode,
+    ],
   );
 
-  // ── File change (called after modal confirm) ──────────────────────────────────
+  // File change (called after modal confirm)
 
   const confirmFileChange = useCallback(
     async (newFiles: StoredFileMeta[]) => {
@@ -319,7 +377,11 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
       setSelectedFiles(newFiles);
 
       const historySnapshot = messages;
-      addMessage({ role: 'user', content: '', fileChange: newFiles.map((f) => f.name) });
+      addMessage({
+        role: 'user',
+        content: '',
+        fileChange: newFiles.map((f) => f.name),
+      });
 
       if (mode === 'default') {
         await greetForMode(
@@ -328,6 +390,17 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
           historySnapshot,
           `I've updated the selected documents to: ${newFiles.map((f) => f.name).join(', ')}. Please acknowledge.`,
         );
+        return;
+      }
+
+      // Compare mode: exactly 2 files required
+      if (mode === 'compare' && newFiles.length !== 2) {
+        const count = newFiles.length;
+        const msg =
+          count < 2
+            ? `Compare Mode requires exactly **2 documents**, but you now have **${count}** selected. Please add another file to continue comparing.`
+            : `Compare Mode requires exactly **2 documents**, but you now have **${count}** selected. Please deselect files until exactly 2 remain.`;
+        addMessage({ role: 'assistant', content: msg });
         return;
       }
 
@@ -354,13 +427,24 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
         );
       } catch (err) {
         if ((err as Error).name !== 'AbortError') {
-          addMessage({ role: 'assistant', content: 'Something went wrong updating files. Please try again.' });
+          addMessage({
+            role: 'assistant',
+            content: 'Something went wrong updating files. Please try again.',
+          });
         }
       } finally {
         setIsAnalysing(false);
       }
     },
-    [isAnalysing, isStreaming, messages, mode, leftScreens, addMessage, greetForMode],
+    [
+      isAnalysing,
+      isStreaming,
+      messages,
+      mode,
+      leftScreens,
+      addMessage,
+      greetForMode,
+    ],
   );
 
   // Send message
@@ -375,7 +459,13 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
       const assistantId = uid();
       setMessages((prev) => [
         ...prev,
-        { id: assistantId, role: 'assistant', content: '', isLoading: true, timestamp: Date.now() },
+        {
+          id: assistantId,
+          role: 'assistant',
+          content: '',
+          isLoading: true,
+          timestamp: Date.now(),
+        },
       ]);
 
       const history = historySnapshot
@@ -385,8 +475,8 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
           content: m.modeChange
             ? `Mode: ${m.modeChange}`
             : m.fileChange
-            ? `Selected files: ${m.fileChange.join(', ')}`
-            : m.content,
+              ? `Selected files: ${m.fileChange.join(', ')}`
+              : m.content,
         }));
       history.push({ role: 'user', content });
 
@@ -397,14 +487,26 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
           setMessages((prev) =>
             prev.map((m) =>
               m.id === assistantId
-                ? { ...m, content: 'Something went wrong. Please try again.', isLoading: false }
+                ? {
+                    ...m,
+                    content: 'Something went wrong. Please try again.',
+                    isLoading: false,
+                  }
                 : m,
             ),
           );
         }
       }
     },
-    [mode, selectedFiles, messages, isStreaming, isAnalysing, addMessage, streamIntoMessage],
+    [
+      mode,
+      selectedFiles,
+      messages,
+      isStreaming,
+      isAnalysing,
+      addMessage,
+      streamIntoMessage,
+    ],
   );
 
   // Initial greeting
@@ -414,9 +516,12 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
 
     const MODE_GREETINGS: Record<QAMode, string> = {
       default: "I've reviewed your documents. What would you like to know?",
-      resume: "I've analysed your resume and job description. I can help identify skill gaps, suggest rewrites, and draft a cover letter. Where would you like to start?",
-      compare: "I've compared your documents and prepared a structured breakdown on the left. Feel free to ask any questions.",
-      glossary: "I've extracted the key terminology from your documents — you can browse the glossary on the left. Ask me about any term.",
+      resume:
+        "I've analysed your resume and job description. I can help identify skill gaps, suggest rewrites, and draft a cover letter. Where would you like to start?",
+      compare:
+        "I've compared your documents and prepared a structured breakdown on the left. Feel free to ask any questions.",
+      glossary:
+        "I've extracted the key terminology from your documents — you can browse the glossary on the left. Ask me about any term.",
     };
 
     // For non-default initial modes, run analysis first
@@ -427,9 +532,9 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
 
         if (analysis.mismatch) {
           setIsAnalysing(false);
-          const otherModes = (['default', 'resume', 'compare', 'glossary'] as QAMode[]).filter(
-            (m) => m !== mode,
-          );
+          const otherModes = (
+            ['default', 'resume', 'compare', 'glossary'] as QAMode[]
+          ).filter((m) => m !== mode);
           addMessage({
             role: 'assistant',
             content: `The documents you uploaded don't seem to fit **${mode} mode**. Perhaps try a different mode?`,
@@ -461,12 +566,21 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
     // Greet
     const greetId = uid();
     setMessages([
-      { id: greetId, role: 'assistant', content: '', isLoading: true, timestamp: Date.now() },
+      {
+        id: greetId,
+        role: 'assistant',
+        content: '',
+        isLoading: true,
+        timestamp: Date.now(),
+      },
     ]);
 
     try {
       await streamIntoMessage(greetId, mode, selectedFiles, [
-        { role: 'user', content: `Greet the user for ${mode} mode. Start with: "${MODE_GREETINGS[mode]}"` },
+        {
+          role: 'user',
+          content: `Greet the user for ${mode} mode. Start with: "${MODE_GREETINGS[mode]}"`,
+        },
       ]);
     } catch {
       setMessages([
@@ -479,7 +593,7 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
         },
       ]);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Screen navigation
@@ -487,7 +601,9 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
   const navigateScreen = useCallback(
     (dir: 'prev' | 'next') => {
       setCurrentScreenIndex((i) =>
-        dir === 'prev' ? Math.max(0, i - 1) : Math.min(leftScreens.length - 1, i + 1),
+        dir === 'prev'
+          ? Math.max(0, i - 1)
+          : Math.min(leftScreens.length - 1, i + 1),
       );
     },
     [leftScreens.length],
