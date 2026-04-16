@@ -1,35 +1,67 @@
 # 🧠 QuizMe — AI-Powered Document Learning Platform
 
-QuizMe is an AI-powered web application that transforms documents into interactive learning experiences. Users can upload one or more documents and instantly generate summaries, ask questions, and take AI-generated quizzes to deepen their understanding.
+QuizMe is an AI-powered web application that transforms documents into interactive learning experiences. Users upload one or more documents and instantly generate summaries, ask questions across four intelligent modes, and take AI-generated quizzes to deepen their understanding.
 
 ---
 
-# 🔄 Application Flow
+## 🔄 Application Flow
 
 ```
 Homepage (pick a feature)
         ↓
-Upload documents for [feature]   ← /?selected=[feature]/upload
+Upload documents   ← /?selected=[feature]/upload
         ↓
-Feature-specific options
+Feature-specific options (Step 2)
         ↓
-Results page (with Quiz CTA on every page)
+Results / Chat page (Step 3)
+        ↓
+Quiz CTA available on every result page
 ```
 
-Breadcrumb trail example:
-```
-Quiz Time!  ›  MCQ
-View Summary  ›  Long  ›  Doc-by-doc
-```
+---
 
+## 🚀 Features
 
-# 🚀 Features (MVP)
+---
+
+### 📤 Document Upload — Shared Across All Features
+
+**Step 1 of 3** for every feature. Supports two input methods:
+
+#### Upload a file
+
+- Drag-and-drop or file browser
+- Accepted: **PDF · DOCX · TXT** — up to 20 MB each, up to 10 documents per session
+- File metadata + base64 `dataUrl` stored in `localStorage` under `quizme:summary-flow`
+
+#### Paste text
+
+- Available on the initial screen when **no files have been added yet**
+- Up to **2,000 words** with live word counter
+- Auto-detects file type: content starting with a `#` heading → `.md`, everything else → `.txt`
+- Clicking **Save** opens the **File Naming Modal** where the user names the file
+- Once a file exists, paste moves into the **Add Another Document modal**
+
+#### File Naming Modal
+
+- 160-character preview of pasted content
+- User types a filename; extension badge (`.txt` / `.md`) and hint update automatically
+- Confirm with **Save file** or Enter; cancel returns to paste input
+
+#### Add Another Document modal
+
+- Two tabs: **Upload file** (full drop zone) and **Paste text**
+- Right panel: file list scrolls; Add / Continue / footnote strip pinned at bottom
+
+#### File list
+
+- Type badge, name, size or `N words · pasted text` for pasted entries, progress bar, × remove
 
 ---
 
 ### 📄 1. View Summary
 
-**Flow:** `Homepage` → `Upload` → `Summary length` → `Summary view` _(multi-doc only)_ → `Summary`
+**Flow:** `Upload (Step 1)` → `Options (Step 2)` → `Summary (Step 3)`
 
 #### Summary length: Short · Medium · Long
 
@@ -39,32 +71,75 @@ View Summary  ›  Long  ›  Doc-by-doc
 - **Combined** — One unified summary across all documents
   - If the AI detects the documents are unrelated, it alerts the user and automatically falls back to Doc-by-doc view
 - **Doc-by-doc** — Browse each document's summary separately using ← / → navigation, with the document name shown per page
-
-
-#### File persistence
-File metadata + base64 `dataUrl` stored in `localStorage` under `quizme:summary-flow`. Refreshing restores all state. Managed by `lib/storage.ts` + `hooks/useSummaryFlow.ts`.
-
-#### "Use different files" button
-On `/view-summary`, clears `localStorage` and redirects to `/?selected=view-summary/upload`.
-
-#### After summary: Quiz CTA
-A "Quiz yourself on this" button in the left column routes to `/?selected=quiz-time/upload`.
+- Quiz CTA in left column after result
+- "Use different files" button clears state and returns to upload
 
 ---
 
 ### ❓ 2. Ask Questions
 
-**Flow:** `Homepage` → `Upload` → `Q&A`
+**Flow:** `Upload (Step 1)` → `Choose Mode (Step 2)` → `Chat (Step 3)`
 
-- Ask questions about uploaded document(s)
-- AI answers based on document context( via RAG later on)
-- **"Quiz yourself"** CTA visible throughout
+#### Mode Selection:
+
+- **Default Q&A** - Ask anything grounded in document content
+- **Resume Mode** - Skill gap analysis, resume rewrites, cover letter drafts
+- **Compare Mode** - Side-by-side structured breakdown of 2+ documents
+- **Glossary Mode** - Extract and define all technical terms
+
+#### Chat (`/q-and-a/chat?mode=[mode]`):
+
+**Right — Chat:**
+
+- Streaming AI responses (token-by-token via Groq)
+- User bubbles: purple tint · AI bubbles: transparent + avatar
+- Mode-change chips and file-change chips in user bubbles
+- Mode suggestion badges when AI detects a mismatch
+- **Quiz Me CTA** inline at the end of substantive answers
+- Quick mode switcher (pill buttons) in chat header
+- Fixed input bar; purple send button; Shift+Enter for new line
+
+**Left — Context panel (max 4 screens):**
+
+| Screen               | When shown                                                             |
+| -------------------- | ---------------------------------------------------------------------- |
+| `InfoPanel`          | Landing screen — default mode or before analysis                       |
+| `AgentStepsPanel`    | Resume mode — 5 agent steps with status + detail                       |
+| `CompareTablePanel`  | Compare mode — sticky-header table, one column per file                |
+| `GlossaryPanel`      | Glossary mode — search + horizontal alphabet bar + collapsible entries |
+| `DefaultResultPanel` | Default mode — active file list + tips                                 |
+
+- Screens: landing (always screen 0) + one per non-default mode = max 4 total
+- Switching to a mode that already has a screen updates it in place — **no duplicate screens**
+- **No loading screen** is ever added to the array — a loading overlay is shown on top of the current screen while the API call runs
+- Errors produce a chat message only — no screen changes
+- Chevron `‹ ›` navigation + dot indicators when multiple screens exist
+
+**File selector popover:**
+
+- Dropdown with checkboxes — user toggles freely with no side effects
+- **Update** button appears only when selection differs from current
+- Clicking Update → confirmation modal → on confirm, AI re-analyses the existing mode screen in place
+
+**Mobile:** tab switcher ("💬 Chat" / "📄 Context")
+
+#### Temporary API routes (replaced by Django in production)
+
+| Route               | Purpose                                                            |
+| ------------------- | ------------------------------------------------------------------ |
+| `POST /api/chat`    | Streaming Groq chat with mode-aware system prompt                  |
+| `POST /api/analyze` | Structured JSON — agent steps / compare rows / glossary / mismatch |
+
+Both use `lib/file-extract.ts`: `pdf-parse` for PDFs, `mammoth` for DOCX, UTF-8 decode for text.
+To switch to Django: update the two `fetch('/api/...')` calls in `hooks/useQAFlow.ts`.
+
+**Required env var:** `GROQ_API_KEY=...` in `client/.env.local`
 
 ---
 
 ### 🧠 3. Quiz Time!
 
-**Flow:** `Homepage` → `Upload` → `Quiz options` → `Quiz` → `Score & Feedback`
+**Flow:** `Upload (Step 1)` → `Options (Step 2)` → `Ready → Play → Score → Feedback`
 
 #### Quiz setup options:
 
@@ -167,6 +242,7 @@ The **"Quiz yourself"** button is a persistent feature across all pages — not 
 - Tailwind CSS
 - TypeScript
 - Web Speech API (TTS + STT)
+-  `pdf-parse` (PDF), `mammoth` (DOCX - server-side)
 
 ## Backend
 
@@ -175,6 +251,7 @@ The **"Quiz yourself"** button is a persistent feature across all pages — not 
 
 ## AI / ML
 
+- Groq (`llama-3.3-70b-versatile`) via `groq-sdk`   
 - Hugging Face Transformers
 - pdfplumber (PDF text extraction)
 - nltk (text processing)
@@ -236,13 +313,13 @@ Browser mic → SpeechRecognition API → transcript text
 ```
 Next.js (Frontend UI)
         ↓
+Next.js API routes (temporary Groq integration)
+      ↓  ← swap fetch URLs in hooks/useQAFlow.ts when ready
 Django REST API
-        ↓
-AI Processing Layer
-        ↓
-RAG System (Embeddings + Vector DB)
-        ↓
-LLM (HuggingFace / OpenAI)
+      ↓
+RAG + Agent + MCP Layer
+      ↓
+LLM (Groq / HuggingFace)
 ```
 
 ---
@@ -261,15 +338,13 @@ LLM (HuggingFace / OpenAI)
 git clone https://github.com/hikmahx/quizme.git
 cd quizme/client
 npm install
+# create client/.env.local and add:
+# GROQ_API_KEY=your_key_here
 npm run dev
 ```
 
 ---
 
-# 👤 Author
+## 👤 Author
 
 **Hikmah Yousuph** — Full-Stack Developer transitioning into AI Engineering
-
----
-
-QuizMe is more than a project — it's a step toward building intelligent systems that make learning faster, smarter, and more interactive using AI.
