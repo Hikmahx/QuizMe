@@ -123,7 +123,7 @@ Quiz CTA available on every result page
 
 **Mobile:** tab switcher ("💬 Chat" / "📄 Context")
 
-#### Temporary API routes (replaced by Django in production)
+#### Temporary API routes (replaced by FastAPI in production)
 
 | Route               | Purpose                                                            |
 | ------------------- | ------------------------------------------------------------------ |
@@ -131,7 +131,7 @@ Quiz CTA available on every result page
 | `POST /api/analyze` | Structured JSON — agent steps / compare rows / glossary / mismatch |
 
 Both use `lib/file-extract.ts`: `pdf-parse` for PDFs, `mammoth` for DOCX, UTF-8 decode for text.
-To switch to Django: update the two `fetch('/api/...')` calls in `hooks/useQAFlow.ts`.
+To switch to FastAPI: update the two `fetch('/api/...')` calls in `hooks/useQAFlow.ts`.
 
 **Required env var:** `GROQ_API_KEY=...` in `client/.env.local`
 
@@ -246,8 +246,7 @@ The **"Quiz yourself"** button is a persistent feature across all pages — not 
 
 ## Backend
 
-- Django
-- Django REST Framework
+- FastAPI
 
 ## AI / ML
 
@@ -255,6 +254,10 @@ The **"Quiz yourself"** button is a persistent feature across all pages — not 
 - Hugging Face Transformers
 - pdfplumber (PDF text extraction)
 - nltk (text processing)
+- Pydantic
+- CrewAI (for AI Agents)
+- Langchain (for RAG)
+- 
 
 ---
 
@@ -272,13 +275,13 @@ The **"Quiz yourself"** button is a persistent feature across all pages — not 
 ## 🔊 Voice Interaction (Web Speech API)
 
 - **Text-to-Speech**: Quiz questions and AI-generated feedback can be read aloud using the browser's `SpeechSynthesis` API — no third-party service or backend call required
-- **Speech-to-Text**: Users can answer quiz questions by voice using the browser's `SpeechRecognition` API; the transcript is sent to Django for AI evaluation just like a typed answer
-- Voice interaction is **100% frontend** — Django only receives and processes the final text
+- **Speech-to-Text**: Users can answer quiz questions by voice using the browser's `SpeechRecognition` API; the transcript is sent to FastAPI for AI evaluation just like a typed answer
+- Voice interaction is **100% frontend** — FastAPI only receives and processes the final text
 
 ```
 Browser mic → SpeechRecognition API → transcript text
                                               ↓
-                                    POST /api/quiz/evaluate/  ← Django grades it
+                                    POST /api/quiz/evaluate/  ← FastAPI grades it
                                               ↓
                                     Result text → SpeechSynthesis reads feedback aloud
 ```
@@ -315,7 +318,7 @@ Next.js (Frontend UI)
         ↓
 Next.js API routes (temporary Groq integration)
       ↓  ← swap fetch URLs in hooks/useQAFlow.ts when ready
-Django REST API
+FastAPI REST API
       ↓
 RAG + Agent + MCP Layer
       ↓
