@@ -1,6 +1,7 @@
 fastapi-backend/
 │── app/
 │   │── main.py
+│   │── dependencies.py
 │   ├── api/
 │   │   ├── upload.py
 │   │   ├── summary.py
@@ -41,11 +42,18 @@ fastapi-backend/
 │   │       ├── document_tools.py
 │   │       ├── summary_tools.py
 │   │       ├── quiz_tools.py
-│   │      └── qa_tools.py
+│   │       └── qa_tools.py
 │   │   
-│   └── utils/
-│      ├── pdf.py
-│      └── docx.py
+│   ├── utils/
+│   │   ├── pdf.py
+│   │   └── docx.py
+│   └── services/
+│      ├── upload_service.py
+│      ├── summary_service.py
+│      ├── qa_service.py
+│      └── quiz_service.py
+│   
+│   
 │
 ├──  tests/
 ├── requirements.txt
