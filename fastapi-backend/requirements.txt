@@ -5,7 +5,9 @@ python-multipart==0.0.26
 pydantic==2.10.4
 pydantic-settings==2.7.0
 
-chromadb==1.5.8
+sqlalchemy==2.0.36
+pgvector==0.3.6
+
 sentence-transformers==5.4.1
 langchain-text-splitters==0.3.2
 torch==2.2.2
