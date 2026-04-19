@@ -164,6 +164,7 @@ def generate_summary(
     # Doc-by-doc mode (and fallback from combined)
     if style in ("doc-by-doc", "default") or len(files) == 1:
         summaries = []
+        fell_back_from_combined = style == "doc-by-doc" and len(files) > 1
 
         # Group chunks by document
         chunks_by_doc: dict[str, list[dict]] = {}
@@ -179,11 +180,17 @@ def generate_summary(
             summary_text = _summarise_single_doc(doc_chunks, length, doc_name)
             summaries.append(SingleSummary(doc_name=doc_name, summary=summary_text))
 
+        # Determine the response style:
+        # - Single doc always returns "default" (not "doc-by-doc")
+        # - Multi-doc returns whatever style was used
+        response_style = "doc-by-doc" if len(files) > 1 else "default"
+
         return {
             "collection_id": collection_id,
-            "style": style,
+            "style": response_style,
             "summaries": summaries,
-            "fallback": (style == "doc-by-doc"),  # True if we fell back from combined
+            # fallback is only True when we fell back from a combined request
+            "fallback": fell_back_from_combined,
         }
 
     raise ValueError(f"Unknown summary style: {style}")
