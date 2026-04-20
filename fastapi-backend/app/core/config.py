@@ -42,6 +42,25 @@ class Settings(BaseSettings):
         "text/markdown",
     ]
 
+    # Voice: STT
+    # Leave empty ("") to use faster-whisper locally instead
+    ASSEMBLYAI_API_KEY: str = ""
+    # faster-whisper model: "tiny", "base", "small", "medium", "large-v3"
+    # "base" is a good balance of speed and accuracy on CPU
+    WHISPER_MODEL_SIZE: str = "base"
+
+    # Voice: Text-to-Speech
+    # Leave empty ("") to use Edge TTS instead
+    CARTESIA_API_KEY: str = ""
+
+    # Cartesia voice ID — find more in their dashboard
+    CARTESIA_VOICE_ID: str = "a0e99841-438c-4a64-b679-ae501e7d6091"
+
+    # Edge TTS voice — used when Cartesia key is not set or fails.
+    # Free, no API key, same neural engine as Azure Cognitive Services.
+    # Run `edge-tts --list-voices` to see all available voices.
+    EDGE_TTS_VOICE: str = "en-US-JennyNeural"
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

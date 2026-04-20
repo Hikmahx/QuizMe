@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 
 from app.core.config import get_settings
 from app.core.database import init_db
-from app.api import upload, summary
+from app.api import upload, summary, voice
 
 settings = get_settings()
 
@@ -28,18 +28,20 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS 
+# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],    # allow GET, POST, PUT, DELETE, etc.
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Router
+# Routers
 app.include_router(upload.router, prefix="/api/upload", tags=["Upload"])
 app.include_router(summary.router, prefix="/api/summary", tags=["Summary"])
+app.include_router(voice.router, prefix="/api/voice", tags=["Voice"])
+
 
 @app.get("/")
 def health_check():
