@@ -32,42 +32,53 @@ def synthesize(text: str) -> tuple[bytes, str]:
 
 def _synthesize_with_cartesia(text: str) -> tuple[bytes, str]:
     """
-    Cartesia TTS — sends text to their cloud API, gets back high-quality audio.
-    Returns raw PCM bytes wrapped into a WAV file.
+    Cartesia TTS (SDK v3+).
+
+    Breaking changes from v2:
+      - voice_id= is gone; pass voice={"mode": "id", "id": "..."}
+      - tts.bytes() returns an iterator of chunks, not a single bytes object
     """
-    
     from cartesia import Cartesia
 
     client = Cartesia(api_key=settings.CARTESIA_API_KEY)
-    pcm_bytes = client.tts.bytes(
+    chunks = client.tts.bytes(
         model_id="sonic-2",
         transcript=text,
-        voice_id=settings.CARTESIA_VOICE_ID,
+        voice={"mode": "id", "id": settings.CARTESIA_VOICE_ID},
         output_format={
             "container": "raw",
             "encoding": "pcm_f32le",
             "sample_rate": 44100,
         },
     )
+    pcm_bytes = b"".join(chunks)
     wav_bytes = _pcm_to_wav(pcm_bytes, sample_rate=44100, channels=1, sampwidth=4)
     return wav_bytes, "audio/wav"
 
 
 def _synthesize_with_edge(text: str) -> tuple[bytes, str]:
     """
-    Edge TTS — Microsoft's free neural TTS. No API key needed.
+    Edge TTS — Microsoft's free neural TTS, no API key needed.
 
-    Uses the same neural engine as Azure Cognitive Services.
-    Requires internet. Returns an MP3 file directly (no conversion needed).
+    Two known pitfalls that are both fixed here:
 
-    Voice options (set EDGE_TTS_VOICE in config):
-      "en-US-JennyNeural"    — warm, natural female voice (default)
-      "en-US-GuyNeural"      — natural male voice
+    1. asyncio conflict — uvicorn owns the event loop on its threads, so
+       asyncio.run() raises 'cannot run nested event loop'. Fix: always
+       dispatch to a ThreadPoolExecutor thread that creates its own fresh loop.
+
+    2. edge-tts >=7.0.0 DRM token (Sec-MS-GEC) is rejected by Microsoft's
+       servers with 403. Fix: pin to edge-tts==6.1.12 in requirements.txt,
+       which uses the stable non-DRM auth flow. If you see 403 errors, run:
+           pip install 'edge-tts==6.1.12'
+
+    Voice options (set EDGE_TTS_VOICE in .env):
+      "en-US-JennyNeural"    — warm, natural female (default)
+      "en-US-GuyNeural"      — natural male
       "en-GB-SoniaNeural"    — British female
       "en-GB-RyanNeural"     — British male
-      Full list: run `edge-tts --list-voices` in terminal
+      Full list: edge-tts --list-voices
     """
-    
+    import concurrent.futures
     import edge_tts
 
     async def _run() -> bytes:
@@ -78,13 +89,16 @@ def _synthesize_with_edge(text: str) -> tuple[bytes, str]:
                 chunks.append(chunk["data"])
         return b"".join(chunks)
 
-    try:
-        audio_bytes = asyncio.run(_run())
-    except RuntimeError:
-        import concurrent.futures
+    def _run_in_new_loop() -> bytes:
+        # Isolated loop — no conflict with uvicorn's loop
+        loop = asyncio.new_event_loop()
+        try:
+            return loop.run_until_complete(_run())
+        finally:
+            loop.close()
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-            audio_bytes = pool.submit(asyncio.run, _run()).result()
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+        audio_bytes = pool.submit(_run_in_new_loop).result()
 
     return audio_bytes, "audio/mpeg"
 

@@ -18,16 +18,8 @@ _whisper_model = None
 
 def transcribe(audio_bytes: bytes) -> str:
     """
-    Convert audio bytes into text.
-    Uses AssemblyAI first when configured, otherwise faster-whisper.
-    """
-    """
     Convert audio bytes into a text transcript.
-
-    Tries AssemblyAI first (if API key is configured).
-    Falls back to faster-whisper if:
-      - No API key is set, OR
-      - AssemblyAI fails at runtime (expired trial, quota exceeded, network error)
+    Tries AssemblyAI first, falls back to faster-whisper (if no API key, expired trial, quota exceeded, network error, etc).
     """
     if settings.ASSEMBLYAI_API_KEY:
         try:
@@ -42,21 +34,20 @@ def transcribe(audio_bytes: bytes) -> str:
 
 def _transcribe_with_assemblyai(audio_bytes: bytes) -> str:
     """
-    AssemblyAI STT — sends audio to their cloud API.
+    AssemblyAI STT.
 
-    AssemblyAI needs a URL, not raw bytes. So we:
-    1. Upload the audio bytes to their servers to get a URL
-    2. Submit a transcription job with that URL
-    3. Poll until done and return the transcript
+    SDK >=0.62 requires speech_models (plural, List[str]).
+    Valid values from the API: "universal-2", "universal-3-pro", "slam-1"
+    "universal-2" is the recommended default — high accuracy, fast, cost-effective.
     """
-    
     import assemblyai as aai
 
     aai.settings.api_key = settings.ASSEMBLYAI_API_KEY
     audio_file = io.BytesIO(audio_bytes)
     audio_file.name = "recording.webm"
 
-    transcriber = aai.Transcriber()
+    config = aai.TranscriptionConfig(speech_models=["universal-2"])
+    transcriber = aai.Transcriber(config=config)
     transcript = transcriber.transcribe(audio_file)
     if transcript.status == aai.TranscriptStatus.error:
         raise RuntimeError(f"AssemblyAI transcription failed: {transcript.error}")
@@ -65,12 +56,9 @@ def _transcribe_with_assemblyai(audio_bytes: bytes) -> str:
 
 def _transcribe_with_whisper(audio_bytes: bytes) -> str:
     """
-    faster-whisper STT — runs the Whisper model locally on your machine.
-
-    No API key needed. The model is downloaded on first run and cached.
-    compute_type="int8" is CPU-friendly. Use "float16" if you have a GPU.
+    faster-whisper STT — runs Whisper locally, no API key needed.
+    Model is downloaded from HuggingFace on first run and cached locally.
     """
-    
     model = _get_whisper_model()
 
     with tempfile.NamedTemporaryFile(suffix=".webm", delete=False) as tmp:
@@ -79,6 +67,7 @@ def _transcribe_with_whisper(audio_bytes: bytes) -> str:
 
     try:
         segments, _ = model.transcribe(tmp_path, language="en")
+        # consume the generator before the file is deleted
         return " ".join(seg.text.strip() for seg in segments).strip()
     finally:
         os.unlink(tmp_path)
