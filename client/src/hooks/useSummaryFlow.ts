@@ -176,10 +176,8 @@ export function useSummaryFlow() {
     store.summary = null
     notifyListeners()
 
-    // Map frontend style values to what the backend expects.
     // Single-doc flows always use "default" — regardless of any stale style
     // persisted in the store from a previous multi-doc session.
-    // Multi-doc flows use whatever the user selected (combined / doc-by-doc).
     const isSingleDoc = store.files.length === 1
     const apiStyle = isSingleDoc
       ? 'default'
@@ -193,6 +191,19 @@ export function useSummaryFlow() {
       const result = await generateSummaryApi(store.files, store.length, apiStyle)
       store.summary = result
       store.summaryLoading = false
+
+      // Save collection_id to localStorage so the quiz Voice RAG mode
+      // knows which documents to search when answering spoken questions.
+      if (result.collection_id && typeof window !== 'undefined') {
+        try {
+          const current = JSON.parse(localStorage.getItem('quizme:summary-flow') ?? '{}')
+          localStorage.setItem('quizme:summary-flow', JSON.stringify({
+            ...current,
+            collectionId: result.collection_id,
+          }))
+        } catch { /* quota — non-fatal */ }
+      }
+
       notifyListeners()
     } catch (err) {
       store.summaryLoading = false

@@ -1,9 +1,17 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import WaveformVisualizer from './WaveformVisualizer';
+import { speakText, transcribeAudio } from '@/lib/api';
 
-type Phase = 'ai-speaking' | 'ready' | 'recording' | 'analysing' | 'done';
+type Phase =
+  | 'idle' // waiting for user to press "Hear Question"
+  | 'loading' // speakText() fetch in-flight — audio not yet received
+  | 'ai-speaking' // audio received and playing
+  | 'ready' // audio done, mic button visible
+  | 'recording' // MediaRecorder active
+  | 'analysing' // waiting for STT response
+  | 'done'; // transcript ready
 
 interface OralAnswerPanelProps {
   questionText: string;
@@ -14,8 +22,7 @@ interface OralAnswerPanelProps {
   savedTranscript: string;
 }
 
-const ANALYSE_MS = 1500; // spinner duration
-const SAFETY_TIMEOUT = 60000; // 60 s hard cap
+const SAFETY_MS = 60_000;
 
 export default function OralAnswerPanel({
   questionText,
@@ -25,74 +32,78 @@ export default function OralAnswerPanel({
   submitted,
   savedTranscript,
 }: OralAnswerPanelProps) {
-  const [phase, setPhase] = useState<Phase>(submitted ? 'done' : 'ai-speaking');
+  const [phase, setPhase] = useState<Phase>(submitted ? 'done' : 'idle');
   const [transcript, setTranscript] = useState(savedTranscript);
   const [stream, setStream] = useState<MediaStream | null>(null);
-  const [elapsed, setElapsed] = useState(0); // seconds recorded — shown in button
+  const [elapsed, setElapsed] = useState(0);
 
-  const recognRef = useRef<any>(null);
+  // Audio playback
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioUrlRef = useRef<string | null>(null);
+  const playAbortRef = useRef<AbortController | null>(null); // cancels in-flight speakText fetch
+
+  // Recording
+  const mediaRecRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const fullTextRef = useRef('');
+  const chunksRef = useRef<Blob[]>([]);
   const safetyRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // 1. TTS — runs when question changes
+  // When question changes (navigating questions), reset to idle
   useEffect(() => {
     if (submitted) {
       setPhase('done');
       return;
     }
 
-    // Reset all state for the new question
-    setPhase('ai-speaking');
+    // Stop any playing audio immediately
+    stopAudio();
+    // Stop any active recording
+    stopRecording();
+
+    setPhase('idle');
     setTranscript('');
     setStream(null);
     setElapsed(0);
-    fullTextRef.current = '';
     onWordIndex(-1);
 
-    stopRecording(); // clean up any previous recording
-
-    if (typeof window === 'undefined' || !window.speechSynthesis) {
-      setTimeout(() => setPhase('ready'), 800);
-      return;
-    }
-
-    window.speechSynthesis.cancel();
-
-    const words = questionText.split(' ');
-    const utter = new SpeechSynthesisUtterance(questionText);
-    utter.rate = 0.92;
-    utter.pitch = 1;
-
-    utter.onboundary = (e: SpeechSynthesisEvent) => {
-      if (e.name !== 'word') return;
-      const before = questionText.slice(0, e.charIndex);
-      const idx = before.split(' ').filter(Boolean).length - 1;
-      onWordIndex(Math.max(0, idx));
-    };
-
-    utter.onend = () => {
-      onWordIndex(words.length - 1); // highlight all words once done
-      setTimeout(() => setPhase('ready'), 400);
-    };
-
-    window.speechSynthesis.speak(utter);
-
     return () => {
-      window.speechSynthesis.cancel();
-      onWordIndex(-1);
+      stopAudio();
+      stopRecording();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [questionText, submitted]);
 
   // Cleanup on unmount
   useEffect(() => {
-    return () => stopRecording();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => {
+      stopAudio();
+      stopRecording();
+    };
   }, []);
 
-  // Helpers─
+  // Helpers
+  const stopAudio = () => {
+    // Cancel any in-flight fetch
+    if (playAbortRef.current) {
+      playAbortRef.current.abort();
+      playAbortRef.current = null;
+    }
+    // Stop and tear down the Audio element
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.src = '';
+      audioRef.current.load(); // resets the element fully
+      audioRef.current = null;
+    }
+    // Revoke the blob URL to free memory
+    if (audioUrlRef.current) {
+      URL.revokeObjectURL(audioUrlRef.current);
+      audioUrlRef.current = null;
+    }
+    onWordIndex(-1);
+  };
+
   const stopRecording = () => {
     if (safetyRef.current) {
       clearTimeout(safetyRef.current);
@@ -102,14 +113,14 @@ export default function OralAnswerPanel({
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
-    if (recognRef.current) {
+    if (mediaRecRef.current && mediaRecRef.current.state !== 'inactive') {
       try {
-        recognRef.current.stop();
+        mediaRecRef.current.stop();
       } catch {
-        /* */
+        /**/
       }
-      recognRef.current = null;
     }
+    mediaRecRef.current = null;
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
@@ -117,98 +128,151 @@ export default function OralAnswerPanel({
     setStream(null);
   };
 
-  const finalise = () => {
-    stopRecording();
+  // Play question audio (triggered by button click — satisfies autoplay)
+  const handleHearQuestion = useCallback(async () => {
+    stopAudio();
+    setPhase('ai-speaking');
+    onWordIndex(-1);
+
+    const abort = new AbortController();
+    playAbortRef.current = abort;
+
+    setPhase('loading'); // show spinner while audio is being fetched
+
+    try {
+      const url = await speakText(questionText);
+
+      // If cancelled while fetching (e.g. user clicked next question)
+      if (abort.signal.aborted) {
+        URL.revokeObjectURL(url);
+        return;
+      }
+
+      audioUrlRef.current = url;
+      const audio = new Audio(url);
+      audioRef.current = audio;
+      setPhase('ai-speaking'); // audio received — now actually speaking
+
+      const words = questionText.split(' ');
+
+      audio.addEventListener('timeupdate', () => {
+        if (!audio.duration || abort.signal.aborted) return;
+        const idx = Math.min(
+          words.length - 1,
+          Math.floor((audio.currentTime / audio.duration) * words.length),
+        );
+        onWordIndex(idx);
+      });
+
+      audio.addEventListener('ended', () => {
+        if (abort.signal.aborted) return;
+        onWordIndex(words.length - 1);
+        setTimeout(() => {
+          if (!abort.signal.aborted) setPhase('ready');
+        }, 300);
+      });
+
+      audio.addEventListener('error', () => {
+        if (abort.signal.aborted) return;
+        // Audio element error — fall through to ready so user can still record
+        setPhase('ready');
+      });
+
+      // play() is safe here because it's inside a click handler (user gesture)
+      await audio.play();
+    } catch (err: any) {
+      if (abort.signal.aborted) return; // intentionally cancelled — not an error
+      console.error('TTS error:', err);
+      setPhase('ready'); // degrade gracefully — let user record without audio
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [questionText]);
+
+  // Recording
+  const finaliseWithBlob = async (blob: Blob) => {
     setPhase('analysing');
-    setTimeout(() => {
-      const final = fullTextRef.current.trim();
-      setTranscript(final);
+    try {
+      const text = await transcribeAudio(blob);
+      setTranscript(text);
       setPhase('done');
-      onTranscriptReady(final);
-    }, ANALYSE_MS);
+      onTranscriptReady(text);
+    } catch (err) {
+      console.error('transcribeAudio error:', err);
+      setTranscript('');
+      setPhase('done');
+      onTranscriptReady('');
+    }
   };
 
-  // 3. Start recording
   const handleStartRecording = async () => {
-    fullTextRef.current = '';
+    // Stop audio if still playing when user hits record
+    stopAudio();
+
+    chunksRef.current = [];
     setElapsed(0);
     setPhase('recording');
 
     let localStream: MediaStream | null = null;
-
     try {
       localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch {
-      // Mic denied — still run STT without waveform
-      localStream = null;
+      setPhase('ready');
+      return;
     }
 
     streamRef.current = localStream;
     setStream(localStream);
 
-    // Elapsed seconds counter
     timerRef.current = setInterval(() => setElapsed((s) => s + 1), 1000);
+    safetyRef.current = setTimeout(() => handleStopRecording(), SAFETY_MS);
 
-    // Safety timeout — auto-stop after 60 s
-    safetyRef.current = setTimeout(() => finalise(), SAFETY_TIMEOUT);
+    const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+      ? 'audio/webm;codecs=opus'
+      : MediaRecorder.isTypeSupported('audio/webm')
+        ? 'audio/webm'
+        : '';
 
-    // SpeechRecognition
-    const SR =
-      (window as any).SpeechRecognition ||
-      (window as any).webkitSpeechRecognition;
-    if (!SR) return;
+    const rec = new MediaRecorder(localStream, mimeType ? { mimeType } : {});
+    mediaRecRef.current = rec;
 
-    const recog = new SR();
-    recog.continuous = true;
-    recog.interimResults = false; // only accumulate final results — no fragmentation
-    recog.lang = 'en-US';
-    recognRef.current = recog;
-
-    recog.onresult = (e: any) => {
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        if (e.results[i].isFinal) {
-          fullTextRef.current += e.results[i][0].transcript + ' ';
-        }
-      }
+    rec.ondataavailable = (e) => {
+      if (e.data.size > 0) chunksRef.current.push(e.data);
     };
 
-    recog.onerror = (e: any) => {
-      // 'no-speech' is harmless — Chrome fires it after silence; just restart
-      if (e.error === 'no-speech') {
-        try {
-          recog.start();
-        } catch {
-          /* */
-        }
-      }
-      // Other errors: leave recording going, user can still stop manually
+    rec.onstop = () => {
+      stopRecording();
+      const blob = new Blob(chunksRef.current, {
+        type: mimeType || 'audio/webm',
+      });
+      finaliseWithBlob(blob);
     };
 
-    recog.onend = () => {
-      // Chrome auto-stops recognition periodically — restart unless we intentionally ended
-      if (recognRef.current === recog) {
-        try {
-          recog.start();
-        } catch {
-          /* user already hit Stop */
-        }
-      }
-    };
-
-    recog.start();
+    rec.start(250);
   };
 
-  // 4. Stop recording (manual)
-  const handleStopRecording = () => finalise();
+  const handleStopRecording = () => {
+    if (safetyRef.current) {
+      clearTimeout(safetyRef.current);
+      safetyRef.current = null;
+    }
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    if (mediaRecRef.current && mediaRecRef.current.state !== 'inactive') {
+      mediaRecRef.current.stop(); // triggers rec.onstop → finaliseWithBlob
+    }
+  };
 
-  // 5. Retry — discard transcript, go back to ready
   const handleRetry = () => {
+    stopAudio();
     stopRecording();
-    fullTextRef.current = '';
+    chunksRef.current = [];
     setTranscript('');
     setElapsed(0);
-    setPhase('ready');
-    onRetry(); // tell parent to clear the submitted answer
+    setPhase('idle');
+    onWordIndex(-1);
+    onRetry();
   };
 
   // Derived
@@ -220,8 +284,32 @@ export default function OralAnswerPanel({
     <div className='flex flex-col gap-4'>
       {/* Waveform card */}
       <div className='bg-app-card rounded-2xl p-5 flex flex-col gap-4'>
-        {/* Status row */}
+        {/* Status label */}
         <div className='flex items-center justify-center gap-2 min-h-[22px]'>
+          {phase === 'idle' && (
+            <>
+              <ion-icon
+                name='headset-outline'
+                style={{
+                  fontSize: '16px',
+                  color: 'var(--color-app-text-secondary)',
+                }}
+              />
+              <span className='text-app-text-secondary text-sm'>
+                Press the button below to hear the question
+              </span>
+            </>
+          )}
+
+          {phase === 'loading' && (
+            <>
+              <div className='w-3.5 h-3.5 rounded-full border-2 border-primary border-t-transparent animate-spin' />
+              <span className='text-app-text-secondary text-sm'>
+                Loading audio…
+              </span>
+            </>
+          )}
+
           {phase === 'ai-speaking' && (
             <>
               <ion-icon
@@ -233,6 +321,7 @@ export default function OralAnswerPanel({
               </span>
             </>
           )}
+
           {phase === 'ready' && (
             <>
               <ion-icon
@@ -247,9 +336,9 @@ export default function OralAnswerPanel({
               </span>
             </>
           )}
+
           {phase === 'recording' && (
             <div className='flex items-center gap-2'>
-              {/* Pulsing red dot */}
               <span className='relative flex h-2.5 w-2.5'>
                 <span className='animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75' />
                 <span className='relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500' />
@@ -262,14 +351,16 @@ export default function OralAnswerPanel({
               </span>
             </div>
           )}
+
           {phase === 'analysing' && (
             <>
               <div className='w-3.5 h-3.5 rounded-full border-2 border-primary border-t-transparent animate-spin' />
               <span className='text-app-text-secondary text-sm'>
-                Analysing your response…
+                Transcribing your response…
               </span>
             </>
           )}
+
           {phase === 'done' && (
             <>
               <ion-icon
@@ -283,14 +374,47 @@ export default function OralAnswerPanel({
           )}
         </div>
 
-        {/* Waveform */}
         <WaveformVisualizer
           mode={waveMode}
           stream={phase === 'recording' ? stream : null}
         />
       </div>
 
-      {/* Record / Stop button */}
+      {/* Hear Question button (idle only) */}
+      {phase === 'idle' && (
+        <button
+          onClick={handleHearQuestion}
+          className='w-full flex items-center justify-center gap-3 bg-app-card border-2 border-dashed border-primary/30 hover:border-primary/70 hover:bg-primary/5 text-app-text rounded-2xl py-4 transition-all duration-200 group'
+        >
+          <span className='w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors flex-shrink-0'>
+            <ion-icon
+              name='volume-high-outline'
+              style={{ fontSize: '18px', color: 'var(--color-primary)' }}
+            />
+          </span>
+          <span className='font-medium text-base'>Hear Question</span>
+        </button>
+      )}
+
+      {/* Replay button (loading / speaking / ready) */}
+      {(phase === 'loading' ||
+        phase === 'ai-speaking' ||
+        phase === 'ready') && (
+        <button
+          onClick={handleHearQuestion}
+          disabled={phase === 'loading' || phase === 'ai-speaking'}
+          className='w-full flex items-center justify-center gap-2 text-app-text-secondary text-sm border border-app-text/15 hover:border-primary/40 hover:text-primary rounded-xl py-2.5 transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed'
+        >
+          <ion-icon name='refresh-outline' style={{ fontSize: '15px' }} />
+          {phase === 'loading'
+            ? 'Loading…'
+            : phase === 'ai-speaking'
+              ? 'Playing…'
+              : 'Replay Question'}
+        </button>
+      )}
+
+      {/* Record button */}
       {phase === 'ready' && (
         <button
           onClick={handleStartRecording}
@@ -306,6 +430,7 @@ export default function OralAnswerPanel({
         </button>
       )}
 
+      {/* Stop button */}
       {phase === 'recording' && (
         <button
           onClick={handleStopRecording}
@@ -322,9 +447,9 @@ export default function OralAnswerPanel({
         </button>
       )}
 
-      {/* Transcript — revealed after analysing */}
+      {/* Transcript */}
       {phase === 'done' && transcript && (
-        <div className='flex flex-col gap-3 animate-fade-in'>
+        <div className='flex flex-col gap-3'>
           <div className='bg-app-card rounded-2xl p-5 flex flex-col gap-2'>
             <div className='flex items-center justify-between'>
               <p className='text-app-text-secondary text-xs font-medium uppercase tracking-wide'>
@@ -348,8 +473,9 @@ export default function OralAnswerPanel({
         </div>
       )}
 
+      {/* No speech detected */}
       {phase === 'done' && !transcript && (
-        <div className='flex flex-col gap-3 animate-fade-in'>
+        <div className='flex flex-col gap-3'>
           <div className='bg-app-card rounded-2xl p-5 flex items-center gap-3'>
             <ion-icon
               name='alert-circle-outline'
@@ -372,7 +498,6 @@ export default function OralAnswerPanel({
         </div>
       )}
 
-      {/* Safety note */}
       {phase === 'recording' && (
         <p className='text-app-text-secondary text-xs text-center'>
           Recording stops automatically after 60 seconds
