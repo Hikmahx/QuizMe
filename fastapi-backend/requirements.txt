@@ -31,3 +31,7 @@ edge-tts==6.1.12         # fallback TTS — Microsoft neural voices, free, no AP
 
 pydub==0.25.1            # audio format conversion
 soundfile==0.13.1        # read/write audio files
+
+crewai==0.70.0
+crewai-tools>=1.0.0
+
