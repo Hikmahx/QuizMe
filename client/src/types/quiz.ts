@@ -1,5 +1,3 @@
-// ─── Quiz flow ────────────────────────────────────────────────────────────────
-
 export type QuizDifficulty = 'easy' | 'medium' | 'hard';
 export type QuizQuestionType = 'mcq' | 'theory';
 export type TheoryInputMode = 'written' | 'oral';
@@ -10,50 +8,43 @@ export interface QuizFlowOptions {
   difficulty: QuizDifficulty | null;
   questionCount: QuizQuestionCount | null;
   questionType: QuizQuestionType | null;
-  inputMode: TheoryInputMode | null; // Only set when questionType === 'theory'
+  inputMode: TheoryInputMode | null;
 }
 
-// A single MCQ option
+// Question shapes
 export interface MCQOption {
   letter: 'A' | 'B' | 'C' | 'D';
   text: string;
 }
 
-// A single quiz question (MCQ or theory)
 export interface QuizQuestion {
   id: number;
   text: string;
   options?: MCQOption[]; // MCQ only
-  correctIndex?: number; // Index into options[] of the correct answer (MCQ)
+  correctIndex?: number; // 0-based index of the correct option (MCQ only)
 }
 
-// State tracked per question during a quiz session
+// Per-question answer state tracked during the quiz
 export interface QuizAnswerState {
-  answer: number | string | null; // Index selected (MCQ) or text entered (theory/oral)
+  answer: number | string | null; // selected index (MCQ) or typed/spoken text
   submitted: boolean;
-  correct: boolean | null; // null = not yet evaluated
-  transcript?: string; // Raw transcript including pauses/uhms (oral only)
+  correct: boolean | null; // null = not yet evaluated client-side
+  transcript?: string; // oral mode only
 }
 
-// Full in-memory quiz session state (not persisted — lost on refresh by design)
-export interface QuizSession {
-  questions: QuizQuestion[];
-  answers: QuizAnswerState[];
-  currentIndex: number;
-  finished: boolean;
-}
-
-// Per-question feedback from the AI
-export interface QuestionFeedback {
-  questionIndex: number;
+// AI feedback returned by the Answer Grader agent
+export interface AIFeedback {
   correct: boolean;
+  // Percentage 0-100 for both MCQ and theory:
+  //   MCQ:    100 (correct) or 0 (wrong)
+  //   Theory: 0-100 based on accuracy and completeness
+  score_pct: number;
   explanation: string;
   tip: string;
 }
 
-// Final score + feedback
-export interface QuizResult {
-  score: number;
-  total: number;
-  feedbacks: QuestionFeedback[];
+// Evaluate API response shape
+export interface EvaluateResponse {
+  feedbacks: AIFeedback[];
+  overall_pct: number; // average score across all questions
 }
