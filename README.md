@@ -1,4 +1,4 @@
-# 🧠 QuizMe — AI-Powered Document Learning Platform
+# QuizMe — AI-Powered Document Learning Platform
 
 QuizMe is an AI-powered web application that transforms documents into interactive learning experiences. Users upload one or more documents and instantly generate summaries, ask questions across four intelligent modes, and take AI-generated quizzes to deepen their understanding.
 
