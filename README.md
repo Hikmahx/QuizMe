@@ -4,7 +4,7 @@ QuizMe is an AI-powered web application that transforms documents into interacti
 
 ---
 
-## 🔄 Application Flow
+## Application Flow
 
 ```
 Homepage (pick a feature)
@@ -20,11 +20,11 @@ Quiz CTA available on every result page
 
 ---
 
-## 🚀 Features
+## Features
 
 ---
 
-### 📤 Document Upload — Shared Across All Features
+### Document Upload — Shared Across All Features
 
 **Step 1 of 3** for every feature. Supports two input methods:
 
@@ -59,7 +59,7 @@ Quiz CTA available on every result page
 
 ---
 
-### 📄 1. View Summary
+### 1. View Summary
 
 **Flow:** `Upload (Step 1)` → `Options (Step 2)` → `Summary (Step 3)`
 
@@ -76,7 +76,7 @@ Quiz CTA available on every result page
 
 ---
 
-### ❓ 2. Ask Questions
+### 2. Ask Questions
 
 **Flow:** `Upload (Step 1)` → `Choose Mode (Step 2)` → `Chat (Step 3)`
 
@@ -137,7 +137,7 @@ To switch to FastAPI: update the two `fetch('/api/...')` calls in `hooks/useQAFl
 
 ---
 
-### 🧠 3. Quiz Time!
+### 3. Quiz Time!
 
 **Flow:** `Upload (Step 1)` → `Options (Step 2)` → `Ready → Play → Score → Feedback`
 
@@ -189,7 +189,7 @@ transcript cleared → phase: 'ready' → user records again
 POST /api/quiz/evaluate/ → AI grades transcript
 ```
 
-> ⚠️ `SpeechRecognition` works best on Chrome / Edge. Firefox support is limited.
+> `SpeechRecognition` works best on Chrome / Edge. Firefox support is limited.
 
 #### Score page (`/quiz/score`):
 
@@ -218,23 +218,23 @@ POST /api/quiz/evaluate/ → AI grades transcript
 
 ---
 
-### 🔁 Quiz CTA — Appears on Every Feature Page
+### Quiz CTA — Appears on Every Feature Page
 
 The **"Quiz yourself"** button is a persistent feature across all pages — not just the Quiz page. After viewing a summary, getting Q&A answers, or using any future feature, the user is always one tap away from testing their knowledge. This reinforces QuizMe's core purpose: turning passive reading into active learning.
 
 ---
 
-# 🔮 Planned Features (Phase 2+)
+# Planned Features (Phase 2+)
 
-- 📌 **Key Points Extraction** — Bullet points or ranked sentences by importance
-- 📊 **Document Comparison** — Similarities and differences across docs
-- 📚 **FAQ Generator** — Auto-generate common questions from the document
-- 🧩 **DocInsight Mode** — Upload + Summary + Q&A + Key Points in one flow
-- 🎯 **Smart Mode** — AI agent decides what to do based on user intent
+- **Key Points Extraction** — Bullet points or ranked sentences by importance
+- **Document Comparison** — Similarities and differences across docs
+- **FAQ Generator** — Auto-generate common questions from the document
+- **DocInsight Mode** — Upload + Summary + Q&A + Key Points in one flow
+- **Smart Mode** — AI agent decides what to do based on user intent
 
 ---
 
-# 🏗️ Tech Stack
+# Tech Stack
 
 ## Frontend
 
@@ -261,9 +261,9 @@ The **"Quiz yourself"** button is a persistent feature across all pages — not 
 
 ---
 
-# 🧠 AI Concepts Implemented
+# AI Concepts Implemented
 
-## 🔍 Retrieval-Augmented Generation (RAG)
+## Retrieval-Augmented Generation (RAG)
 
 - Documents are split into chunks
 - Stored as embeddings in a vector database
@@ -272,7 +272,7 @@ The **"Quiz yourself"** button is a persistent feature across all pages — not 
 
 ---
 
-## 🔊 Voice Interaction (Web Speech API)
+## Voice Interaction (Web Speech API)
 
 - **Text-to-Speech**: Quiz questions and AI-generated feedback can be read aloud using the browser's `SpeechSynthesis` API — no third-party service or backend call required
 - **Speech-to-Text**: Users can answer quiz questions by voice using the browser's `SpeechRecognition` API; the transcript is sent to FastAPI for AI evaluation just like a typed answer
@@ -286,11 +286,11 @@ Browser mic → SpeechRecognition API → transcript text
                                     Result text → SpeechSynthesis reads feedback aloud
 ```
 
-> ⚠️ **Note:** The `SpeechRecognition` API works best on Chromium-based browsers (Chrome, Edge). Firefox support is limited.
+> **Note:** The `SpeechRecognition` API works best on Chromium-based browsers (Chrome, Edge). Firefox support is limited.
 
 ---
 
-## 🤖 AI Agents (Planned)
+## AI Agents (Planned)
 
 - Dynamically decide workflow:
   - Summarize
@@ -301,7 +301,7 @@ Browser mic → SpeechRecognition API → transcript text
 
 ---
 
-## 🔗 Model Context Protocol (MCP) (Advanced)
+## Model Context Protocol (MCP) (Advanced)
 
 - Structured tool-based interaction layer
 - Enables LLM to:
@@ -311,7 +311,7 @@ Browser mic → SpeechRecognition API → transcript text
 
 ---
 
-# 🏛️ Architecture
+# Architecture
 
 ```
 Next.js (Frontend UI)
@@ -327,7 +327,7 @@ LLM (Groq / HuggingFace)
 
 ---
 
-# 📸 UI Design
+# UI Design
 
 - Consistent two-column layout across all pages (context left, action right)
 - Breadcrumb navigation in the top-left showing full feature path: [icon] [feature] > [page].
@@ -335,7 +335,7 @@ LLM (Groq / HuggingFace)
 
 ---
 
-# ⚙️ Setup
+# Setup
 
 ```bash
 git clone https://github.com/hikmahx/quizme.git
@@ -348,6 +348,6 @@ npm run dev
 
 ---
 
-## 👤 Author
+## Author
 
 **Hikmah Yousuph** — Full-Stack Developer transitioning into AI Engineering
