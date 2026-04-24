@@ -1,38 +1,62 @@
 """
-quiz_agents.py — CrewAI agent definitions for the quiz pipeline.
+quiz_agents.py — CrewAI agent definitions using the multi-provider LLM router.
 
-Following the AI Agents book pattern:
-  - Each agent has one clear role (role-playing principle)
-  - Each agent does one job — never more (focus principle)
-  - The agents cooperate: Generator creates questions, Grader evaluates,
-    Feedback Agent explains (cooperation principle)
-
-LLM setup:
-  CrewAI needs to know which LLM to use. Without this it defaults to OpenAI
-  and throws an auth error. We point it at Groq using the model string
-  "groq/model-name" which CrewAI recognises via the litellm integration.
+FallbackLLM wraps our litellm-based router so CrewAI can use it as a drop-in
+LLM. If Groq hits its rate limit mid-session, the next call automatically
+falls through to Mistral → Gemini → Cerebras.
 """
 
-from crewai import Agent, LLM
-from app.core.config import get_settings
+import logging
+from typing import Any, List, Optional
 
-settings = get_settings()
+from crewai import Agent
+from crewai.llms.base_llm import BaseLLM
 
-# Configure Groq as the LLM for all agents.
-# CrewAI uses litellm under the hood — the "groq/" prefix routes to Groq's API.
-# temperature=0.7 for generation (we want variety in questions).
-# temperature=0.1 for grading (consistent scores — same answer = same grade).
-llm_generate = LLM(
-    model=f"groq/{settings.GROQ_MODEL}",
-    api_key=settings.GROQ_API_KEY,
-    temperature=0.7,
-)
+from app.llm.router import get_llm_response
 
-llm_grade = LLM(
-    model=f"groq/{settings.GROQ_MODEL}",
-    api_key=settings.GROQ_API_KEY,
-    temperature=0.1,
-)
+logger = logging.getLogger(__name__)
+
+
+class FallbackLLM(BaseLLM):
+    """
+    CrewAI-compatible LLM that delegates to our multi-provider router.
+
+    BaseLLM requires:
+      - model attribute (set to a placeholder string)
+      - call(messages, ...) -> str
+      - acall(messages, ...) -> str  (async version)
+    """
+
+    def __init__(self, temperature: float = 0.3, **kwargs):
+        super().__init__(model="fallback-router", **kwargs)
+        self._temperature = temperature
+
+    def call(
+        self,
+        messages: List[dict],
+        tools: Optional[List[Any]] = None,
+        callbacks: Optional[List[Any]] = None,
+        **kwargs,
+    ) -> str:
+        """Synchronous call — used by CrewAI during task execution."""
+        return get_llm_response(messages, temperature=self._temperature)
+
+    async def acall(
+        self,
+        messages: List[dict],
+        tools: Optional[List[Any]] = None,
+        callbacks: Optional[List[Any]] = None,
+        **kwargs,
+    ) -> str:
+        """Async wrapper — runs the sync call in a thread pool."""
+        import asyncio
+        return await asyncio.to_thread(self.call, messages)
+
+
+# Higher temperature for generation (creative questions)
+# Lower temperature for grading (consistent, reproducible scores)
+_llm_generate = FallbackLLM(temperature=0.5)
+_llm_grade    = FallbackLLM(temperature=0.1)
 
 
 quiz_generator = Agent(
@@ -40,21 +64,27 @@ quiz_generator = Agent(
     goal="Create high-quality quiz questions directly from study document content",
     backstory=(
         "You are a professional exam setter with 20 years of experience. "
-        "You only write questions based on the content you are given — never from memory. "
-        "You always return valid JSON and nothing else."
+        "You ONLY write questions based on the exact content you are given — never from general knowledge or memory. "
+        "Every question must be answerable from the provided document. "
+        "You always return valid JSON and nothing else — no markdown, no explanation."
     ),
-    llm=llm_generate,
-    verbose=False,   # set True to see agent reasoning in the terminal
+    llm=_llm_generate,
+    verbose=False,
 )
 
 quiz_grader = Agent(
     role="Quiz Grader",
-    goal="Evaluate student answers accurately and return a structured JSON score",
-    backstory=(
-        "You are a strict but fair examiner. "
-        "You compare the student's answer against the provided document context. "
-        "You always return valid JSON with correct, score_pct, explanation, and tip fields."
+    goal=(
+        "Evaluate whether a student understands the concept being asked, "
+        "rewarding correct ideas regardless of the exact wording used"
     ),
-    llm=llm_grade,
+    backstory=(
+        "You are a fair and encouraging university tutor. "
+        "You grade on UNDERSTANDING, not word-for-word recall. "
+        "If a student expresses the correct idea in their own words (paraphrasing), that is CORRECT — full marks. "
+        "You only mark an answer wrong if it is factually incorrect or completely off-topic. "
+        "You always return valid JSON with correct, score_pct, explanation, and tip — nothing else."
+    ),
+    llm=_llm_grade,
     verbose=False,
 )
