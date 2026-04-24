@@ -1,13 +1,11 @@
-from groq import Groq
 from app.rag.retriever import retrieve_all_chunks
 from app.rag.vectordb import make_collection_id, collection_exists, touch_collection
 from app.services.upload_service import index_files
 from app.schemas.summary import FilePayload, SingleSummary
 from app.core.config import get_settings
+from app.llm.router import get_llm_response
 
 settings = get_settings()
-
-groq_client = Groq(api_key=settings.GROQ_API_KEY)
 
 LENGTH_INSTRUCTIONS = {
     "short":  "Write a concise summary in 3-5 sentences (approximately 80-120 words).",
@@ -18,11 +16,8 @@ LENGTH_INSTRUCTIONS = {
 
 def _get_collection_id(files: list[FilePayload]) -> str:
     """
-    Ensures the files are indexed before we try to use them.
+    Ensures files are indexed before use.
     If the collection already exists, just touch it. If not, index first.
-
-    This is a safety net — the frontend should always call /api/upload first,
-    but this makes the summary endpoint self-contained.
     """
     collection_id = make_collection_id(
         [{"name": f.name, "dataUrl": f.dataUrl} for f in files]
@@ -38,15 +33,9 @@ def _get_collection_id(files: list[FilePayload]) -> str:
 
 def _summarise_single_doc(chunks: list[dict], length: str, doc_name: str) -> str:
     """
-    Calls Groq to summarise a single document's chunks.
-
-    We join all chunks into one big context block and ask the AI to summarise it.
-    For summary (unlike Q&A), we want ALL chunks — not just the top-k relevant ones —
-    because we are summarising the whole document, not answering a specific question.
+    Summarise a single document's chunks via the LLM router (with fallback).
+    We use ALL chunks — not top-k — because we're summarising the whole doc.
     """
-
-    # Join all chunks into one context string.
-    # We label each chunk with its source so the AI knows it is one document.
     context = "\n\n---\n\n".join(chunk["content"] for chunk in chunks)
     length_instruction = LENGTH_INSTRUCTIONS.get(length, LENGTH_INSTRUCTIONS["medium"])
 
@@ -62,35 +51,28 @@ DOCUMENT:
 
 SUMMARY:"""
 
-    response = groq_client.chat.completions.create(
-        model=settings.GROQ_MODEL,
+    return get_llm_response(
         messages=[{"role": "user", "content": prompt}],
-        max_tokens=settings.GROQ_MAX_TOKENS,
-        temperature=settings.GROQ_TEMPERATURE,
-    )
-
-    # response.choices[0].message.content is the AI's reply text.
-    return response.choices[0].message.content.strip()
+        temperature=0.3,
+        max_tokens=settings.LLM_MAX_TOKENS,
+    ).strip()
 
 
 def _summarise_combined(all_chunks: list[dict], length: str) -> tuple[str, bool]:
     """
-    Summarises multiple documents as one unified summary.
+    Summarise multiple documents as one unified summary.
     Returns (summary_text, fallback_triggered).
 
-    fallback_triggered = True means the AI detected the docs are unrelated,
+    fallback_triggered = True means the AI detected the docs are unrelated
     and the frontend should switch to doc-by-doc view.
     """
-
-    # Group chunks by document
-    docs_context = {}
+    docs_context: dict[str, list[str]] = {}
     for chunk in all_chunks:
         name = chunk["doc_name"]
         if name not in docs_context:
             docs_context[name] = []
         docs_context[name].append(chunk["content"])
 
-    # Build a context block with clear doc separations
     context_parts = []
     for doc_name, chunks in docs_context.items():
         doc_text = "\n\n".join(chunks)
@@ -112,17 +94,14 @@ DOCUMENTS:
 
 SUMMARY:"""
 
-    response = groq_client.chat.completions.create(
-        model=settings.GROQ_MODEL,
+    result = get_llm_response(
         messages=[{"role": "user", "content": prompt}],
-        max_tokens=settings.GROQ_MAX_TOKENS,
-        temperature=settings.GROQ_TEMPERATURE,
-    )
-
-    result = response.choices[0].message.content.strip()
+        temperature=0.3,
+        max_tokens=settings.LLM_MAX_TOKENS,
+    ).strip()
 
     if "UNRELATED_DOCUMENTS" in result:
-        return "", True  # Signal fallback to the route handler
+        return "", True
 
     return result, False
 
@@ -133,26 +112,20 @@ def generate_summary(
     style: str,
 ) -> dict:
     """
-    The main summary service function, called by the route handler.
-
+    Main summary service function, called by the route handler.
     Returns a dict matching the SummaryResponse schema.
     """
-
     collection_id = _get_collection_id(files)
-
-    # Get all stored chunks for this collection
     all_chunks = retrieve_all_chunks(collection_id)
 
     if not all_chunks:
         raise ValueError("No content found. Please re-upload your files.")
 
-    # Combined mode 
+    # Combined mode
     if style == "combined" and len(files) > 1:
         summary_text, fallback = _summarise_combined(all_chunks, length)
-
         if fallback:
-            # AI said docs are unrelated — fall back to doc-by-doc
-            style = "doc-by-doc"
+            style = "doc-by-doc"  # fall through to doc-by-doc below
         else:
             return {
                 "collection_id": collection_id,
@@ -163,10 +136,8 @@ def generate_summary(
 
     # Doc-by-doc mode (and fallback from combined)
     if style in ("doc-by-doc", "default") or len(files) == 1:
-        summaries = []
         fell_back_from_combined = style == "doc-by-doc" and len(files) > 1
 
-        # Group chunks by document
         chunks_by_doc: dict[str, list[dict]] = {}
         for chunk in all_chunks:
             name = chunk["doc_name"]
@@ -174,22 +145,15 @@ def generate_summary(
                 chunks_by_doc[name] = []
             chunks_by_doc[name].append(chunk)
 
-        # Summarise each document separately
+        summaries = []
         for doc_name, doc_chunks in chunks_by_doc.items():
-            print(f"Summarising {doc_name}...")
             summary_text = _summarise_single_doc(doc_chunks, length, doc_name)
             summaries.append(SingleSummary(doc_name=doc_name, summary=summary_text))
 
-        # Determine the response style:
-        # - Single doc always returns "default" (not "doc-by-doc")
-        # - Multi-doc returns whatever style was used
-        response_style = "doc-by-doc" if len(files) > 1 else "default"
-
         return {
             "collection_id": collection_id,
-            "style": response_style,
+            "style": "doc-by-doc" if len(files) > 1 else "default",
             "summaries": summaries,
-            # fallback is only True when we fell back from a combined request
             "fallback": fell_back_from_combined,
         }
 
