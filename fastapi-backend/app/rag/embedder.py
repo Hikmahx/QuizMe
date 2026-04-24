@@ -3,7 +3,7 @@ from app.core.config import get_settings
 
 settings = get_settings()
 
-model = SentenceTransformer(settings.EMBEDDING_MODEL)
+model = SentenceTransformer(settings.EMBEDDING_MODEL, device="cpu")  # or "cuda"
 
 
 def get_embedding(text: str) -> list[float]:
