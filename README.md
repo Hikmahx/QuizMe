@@ -224,7 +224,7 @@ The **"Quiz yourself"** button is a persistent feature across all pages — not 
 
 ---
 
-# Planned Features (Phase 2+)
+# Planned Features (Later)
 
 - **Key Points Extraction** — Bullet points or ranked sentences by importance
 - **Document Comparison** — Similarities and differences across docs
