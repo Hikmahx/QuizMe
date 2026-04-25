@@ -35,18 +35,21 @@ export async function generateQuizApi(
   }
 
   const data = await res.json();
-  // data = { questions: [...], source: "ai" }
   return data.questions as QuizQuestion[];
 }
 
 // Evaluate all answers
 export interface AnswerPayload {
   question: string;
-  user_answer: string;
-  correct_answer: string; // option text for MCQ, "" for theory
+  user_answer: string; // option text for MCQ; typed/spoken text for theory
+  correct_answer: string; // correct option text for MCQ; "" for theory
   question_type: 'mcq' | 'theory';
 }
 
+/**
+ * Build the answer payload array from questions + answer states.
+ * Called on the feedback page before sending to /api/quiz/evaluate/.
+ */
 export function buildAnswerPayloads(
   questions: QuizQuestion[],
   answers: QuizAnswerState[],
@@ -56,7 +59,6 @@ export function buildAnswerPayloads(
     const ans = answers[i];
 
     if (questionType === 'mcq') {
-      // For MCQ, pass the text of what the user selected and what was correct
       const userText =
         typeof ans?.answer === 'number'
           ? (q.options?.[ans.answer]?.text ?? '')
@@ -73,16 +75,22 @@ export function buildAnswerPayloads(
       };
     }
 
-    // Theory/oral: the answer is already a string
+    // Theory — answer is always the string the user typed or said
+    const userAnswer = typeof ans?.answer === 'string' ? ans.answer.trim() : '';
     return {
       question: q.text,
-      user_answer: typeof ans?.answer === 'string' ? ans.answer : '',
+      user_answer: userAnswer,
       correct_answer: '',
       question_type: 'theory',
     };
   });
 }
 
+/**
+ * POST /api/quiz/evaluate/
+ * Sends all answers to the backend grader and returns per-question feedback.
+ * Never throws — returns a zero-score fallback if the request fails.
+ */
 export async function evaluateQuizApi(
   answers: AnswerPayload[],
   collectionId: string | null,
@@ -108,13 +116,13 @@ export async function evaluateQuizApi(
     });
 
     if (!res.ok) {
-      console.error('Evaluate API error:', res.status);
+      console.error('evaluateQuizApi: HTTP error', res.status);
       return fallback;
     }
 
     return (await res.json()) as EvaluateResponse;
   } catch (err) {
-    console.error('evaluateQuizApi failed:', err);
+    console.error('evaluateQuizApi: network error', err);
     return fallback;
   }
 }

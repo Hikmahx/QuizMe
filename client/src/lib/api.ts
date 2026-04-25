@@ -47,8 +47,7 @@ export async function generateSummaryApi(
 // Voice API
 /**
  * POST /api/voice/speak/
- * Sends text to the backend TTS endpoint, returns a blob URL you can pass to new Audio().
- * Caller must call URL.revokeObjectURL() when done to free memory.
+ * Returns a blob URL you can pass to new Audio(). Call URL.revokeObjectURL() when done.
  */
 export async function speakText(text: string): Promise<string> {
   const res = await fetch(`${BASE_URL}/api/voice/speak/`, {
@@ -66,7 +65,7 @@ export async function speakText(text: string): Promise<string> {
 
 /**
  * POST /api/voice/transcribe/
- * Sends a recorded audio Blob to the backend STT endpoint, returns the transcript string.
+ * Sends a recorded audio Blob to the backend STT endpoint, returns the transcript.
  */
 export async function transcribeAudio(audioBlob: Blob): Promise<string> {
   const form = new FormData();
@@ -81,4 +80,37 @@ export async function transcribeAudio(audioBlob: Blob): Promise<string> {
   }
   const data = await res.json();
   return data.transcript as string;
+}
+
+//  Quiz upload & generate
+export interface UploadForQuizResponse {
+  collection_id: string;
+  files_indexed: number;
+  total_chunks: number;
+  message: string;
+}
+
+/**
+ * POST /api/upload/
+ * Indexes uploaded documents in the vector store and returns a collection_id.
+ */
+export async function uploadFilesForQuiz(
+  files: StoredFileMeta[],
+): Promise<UploadForQuizResponse> {
+  const res = await fetch(`${BASE_URL}/api/upload/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      files: files.map((f) => ({
+        name: f.name,
+        type: f.type,
+        dataUrl: f.dataUrl,
+      })),
+    }),
+  });
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ detail: 'Unknown error' }));
+    throw new Error(error.detail ?? `Upload failed with status ${res.status}`);
+  }
+  return res.json();
 }
