@@ -10,9 +10,10 @@ pgvector==0.3.6
 psycopg2-binary==2.9.10
 
 sentence-transformers==5.4.1
-langchain-text-splitters==0.3.2
+langchain-text-splitters==0.2.2
 torch==2.2.2
 transformers==4.57.1
+tokenizers>=0.22.0,<=0.23.0
 
 python-dotenv==1.2.2
 groq==1.1.2
@@ -21,17 +22,15 @@ pdfplumber==0.11.9
 python-docx==1.2.0
 PyMuPDF==1.27.2
 
-assemblyai>=0.62.0        # STT — upgraded: 0.37 used deprecated speech_model, 0.62+ requires speech_models (plural)
-faster-whisper==1.1.1    # fallback STT — runs locally, no API key needed
+assemblyai>=0.62.0
+faster-whisper==1.1.1
 
-cartesia==3.0.2          # primary TTS (free trial at cartesia.ai)
-edge-tts==6.1.12         # fallback TTS — Microsoft neural voices, free, no API key
-                         # pinned to 6.x: v7+ uses a DRM token (Sec-MS-GEC) that
-                         # Microsoft's servers currently reject with 403
+cartesia==3.0.2
+edge-tts==6.1.12
 
-pydub==0.25.1            # audio format conversion
-soundfile==0.13.1        # read/write audio files
+pydub==0.25.1
+soundfile==0.13.1
 
-crewai==0.70.0
-crewai-tools>=1.0.0
-
+crewai==0.121.1
+crewai-tools==0.45.0
+litellm>=1.50.0
