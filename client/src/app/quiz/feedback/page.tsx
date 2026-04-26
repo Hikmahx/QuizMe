@@ -6,12 +6,12 @@ import Header from '@/components/global/Header';
 import Breadcrumb from '@/components/global/Breadcrumb';
 import FeedbackCard from '@/components/quiz/FeedbackCard';
 import { FEATURE_MAP } from '@/lib/features';
-import { useQuizFlow } from '@/hooks/useQuizFlow';
 import { QuizAnswerState, QuizQuestion, AIFeedback } from '@/types/quiz';
 import { buildAnswerPayloads, evaluateQuizApi } from '@/lib/quiz-api';
 
 const feature = FEATURE_MAP['quiz-time'];
 
+/** Read the collection_id that play/page.tsx saved after uploading. */
 function getStoredCollectionId(): string | null {
   if (typeof window === 'undefined') return null;
   try {
@@ -23,9 +23,19 @@ function getStoredCollectionId(): string | null {
   }
 }
 
+/**
+ * Read questionType from sessionStorage (written there by play/page.tsx).
+ * This avoids relying on the useQuizFlow hook whose value can be stale
+ * if the component mounts before the hook hydrates from localStorage.
+ */
+function getStoredQuestionType(): 'mcq' | 'theory' | null {
+  if (typeof window === 'undefined') return null;
+  const t = sessionStorage.getItem('quizme:questionType');
+  return t === 'mcq' || t === 'theory' ? t : null;
+}
+
 export default function QuizFeedbackPage() {
   const router = useRouter();
-  const flow = useQuizFlow();
 
   const [answers, setAnswers] = useState<QuizAnswerState[]>([]);
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
@@ -33,13 +43,14 @@ export default function QuizFeedbackPage() {
   const [overallPct, setOverallPct] = useState<number | null>(null);
   const [evaluating, setEvaluating] = useState(true);
   const [ready, setReady] = useState(false);
-
-  const isMCQ = flow.questionType === 'mcq';
-  const isTheory = !isMCQ;
+  const [questionType, setQuestionType] = useState<'mcq' | 'theory' | null>(
+    null,
+  );
 
   useEffect(() => {
     const rawA = sessionStorage.getItem('quizme:answers');
     const rawQ = sessionStorage.getItem('quizme:questions');
+
     if (!rawA || !rawQ) {
       router.replace('/quiz/score');
       return;
@@ -47,29 +58,66 @@ export default function QuizFeedbackPage() {
 
     const parsedAnswers: QuizAnswerState[] = JSON.parse(rawA);
     const parsedQuestions: QuizQuestion[] = JSON.parse(rawQ);
+    const qType = getStoredQuestionType();
 
     setAnswers(parsedAnswers);
     setQuestions(parsedQuestions);
+    setQuestionType(qType);
     setReady(true);
 
-    // Build payloads and send to the Answer Grader agent
     const collectionId = getStoredCollectionId();
+
+    // Build payloads from the parsed data directly (never from state, which is async)
     const payloads = buildAnswerPayloads(
       parsedQuestions,
       parsedAnswers,
-      flow.questionType ?? 'mcq',
+      qType ?? 'theory',
     );
 
-    evaluateQuizApi(payloads, collectionId).then((result) => {
+    // Rebuild properly using questions + answers
+    const correctPayloads = parsedQuestions.map((q, i) => {
+      const ans = parsedAnswers[i];
+
+      if (qType === 'mcq') {
+        const userText =
+          typeof ans?.answer === 'number'
+            ? (q.options?.[ans.answer]?.text ?? '')
+            : '';
+        const correctText =
+          q.correctIndex !== undefined
+            ? (q.options?.[q.correctIndex]?.text ?? '')
+            : '';
+        return {
+          question: q.text,
+          user_answer: userText,
+          correct_answer: correctText,
+          question_type: 'mcq' as const,
+        };
+      }
+
+      const userAnswer =
+        typeof ans?.answer === 'string' ? ans.answer.trim() : '';
+      return {
+        question: q.text,
+        user_answer: userAnswer,
+        correct_answer: '',
+        question_type: 'theory' as const,
+      };
+    });
+
+    evaluateQuizApi(correctPayloads, collectionId).then((result) => {
       setFeedbacks(result.feedbacks);
       setOverallPct(result.overall_pct);
       setEvaluating(false);
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
+    void payloads; // suppress unused var warning
   }, [router]);
 
   if (!ready) return null;
 
+  const isMCQ = questionType === 'mcq';
+  const isTheory = !isMCQ;
   const correctCount = feedbacks.filter((f) => f?.correct).length;
 
   return (
@@ -86,7 +134,7 @@ export default function QuizFeedbackPage() {
       </div>
 
       <div className='flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-2 px-6 md:px-12 max-w-[1200px] mx-auto w-full'>
-        {/* LEFT — summary */}
+        {/* LEFT */}
         <div className='lg:pr-16 flex flex-col min-h-0 py-6'>
           <div className='flex-1 overflow-y-auto min-h-0 pr-1'>
             <span className='inline-flex items-center gap-2 bg-primary/15 border border-primary/30 rounded-full px-4 py-1.5 text-sm text-primary font-medium mb-6'>
@@ -99,7 +147,7 @@ export default function QuizFeedbackPage() {
             </h1>
             <p className='text-app-text-secondary italic text-sm mb-8 leading-relaxed'>
               {isTheory
-                ? 'Each answer has been graded as a percentage by the AI, based on your uploaded documents.'
+                ? 'Each answer is graded as a percentage. 50% or above = correct.'
                 : 'Review each explanation to understand where you went wrong.'}
             </p>
 
@@ -130,8 +178,8 @@ export default function QuizFeedbackPage() {
                     </p>
                     <p className='text-app-text-secondary text-sm'>
                       {isTheory
-                        ? `${correctCount} of ${questions.length} answers passed (≥60%)`
-                        : `${Math.round((correctCount / questions.length) * 100)}% accuracy`}
+                        ? `${correctCount} of ${questions.length} answers passed (≥50%)`
+                        : `${questions.length > 0 ? Math.round((correctCount / questions.length) * 100) : 0}% accuracy`}
                     </p>
                   </>
                 )}
@@ -144,6 +192,7 @@ export default function QuizFeedbackPage() {
               onClick={() => {
                 sessionStorage.removeItem('quizme:answers');
                 sessionStorage.removeItem('quizme:questions');
+                sessionStorage.removeItem('quizme:questionType');
                 router.push('/quiz/options?step=difficulty');
               }}
               className='w-full bg-primary text-white font-medium text-base rounded-2xl py-3.5 hover:opacity-90 transition-all'
@@ -167,7 +216,6 @@ export default function QuizFeedbackPage() {
 
           <div className='flex-1 overflow-y-auto min-h-0 flex flex-col gap-4 pr-1'>
             {evaluating ? (
-              // Loading state while the grader agent is running
               <div className='flex flex-col items-center justify-center h-40 gap-4'>
                 <div className='w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin' />
                 <p className='text-app-text-secondary text-sm'>
@@ -178,8 +226,13 @@ export default function QuizFeedbackPage() {
               questions.map((q, i) => {
                 const a = answers[i];
                 const feedback = feedbacks[i];
-
                 if (!feedback) return null;
+
+                const userAnswerText = isMCQ
+                  ? q.options?.[a?.answer as number]?.text
+                  : typeof a?.answer === 'string'
+                    ? a.answer
+                    : undefined;
 
                 return (
                   <FeedbackCard
@@ -191,13 +244,7 @@ export default function QuizFeedbackPage() {
                     explanation={feedback.explanation}
                     tip={feedback.tip}
                     isTheory={isTheory}
-                    userAnswer={
-                      isMCQ
-                        ? q.options?.[a?.answer as number]?.text
-                        : typeof a?.answer === 'string'
-                          ? a.answer
-                          : undefined
-                    }
+                    userAnswer={userAnswerText}
                   />
                 );
               })
