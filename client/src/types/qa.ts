@@ -8,12 +8,21 @@ export interface QAChatMessage {
   id: string;
   role: 'user' | 'assistant';
   content: string;
-  modeChange?: QAMode; // Rendered as a mode-switch chip in the user bubble
-  fileChange?: string[]; // Rendered as a file-selection chip in the user bubble
-  showQuizCta?: boolean; // Show the Quiz Me CTA button
-  modeSuggestions?: QAMode[]; // Suggest alternative modes (rendered as clickable badges under the message)
-  isLoading?: boolean;
   timestamp: number;
+  // Special UI states
+  modeChange?: QAMode; // renders a mode-switch chip in the user bubble
+  fileChange?: string[]; // renders a file-selection chip in the user bubble
+  showQuizCta?: boolean; // show the "Quiz Me" inline CTA button after message
+  showQuizRedirect?: boolean; // show a "Go to Quiz →" navigation card after message
+  modeSuggestions?: QAMode[]; // mismatch case — show clickable alternative mode badges
+  isLoading?: boolean;
+
+  // Auto mode detection suggestion (shown before first user message)
+  // Renders "These documents look like X — switch to Y mode?" with yes/no buttons
+  autoModeSuggestion?: {
+    mode: QAMode;
+    reason: string;
+  };
 }
 
 // Left-panel screens

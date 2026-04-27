@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from app.core.config import get_settings
 from app.core.database import init_db
 from app.api import upload, summary, voice
-from app.api import quiz
+from app.api import quiz, qa
 
 settings = get_settings()
 
@@ -35,6 +35,7 @@ app.include_router(upload.router, prefix="/api/upload", tags=["Upload"])
 app.include_router(summary.router, prefix="/api/summary", tags=["Summary"])
 app.include_router(voice.router, prefix="/api/voice", tags=["Voice"])
 app.include_router(quiz.router, prefix="/api/quiz", tags=["Quiz"])
+app.include_router(qa.router, prefix="/api/qa", tags=["Q&A"])
 
 
 @app.get("/")
