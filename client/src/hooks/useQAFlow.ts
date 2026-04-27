@@ -27,7 +27,7 @@ import {
   QAChatMessage,
   LeftPanelScreen,
   LeftScreenType,
-  AgentStep,
+  AnalysisStep,
   CompareRow,
   GlossaryEntry,
 } from '@/types/qa';
@@ -39,7 +39,7 @@ const uid = () => `msg-${++_counter}-${Date.now()}`;
 const screenUid = () => `scr-${++_counter}-${Date.now()}`;
 
 const MODE_SCREEN_TYPE: Partial<Record<QAMode, LeftScreenType>> = {
-  resume: 'agent-steps',
+  resume: 'analysis-steps',
   compare: 'compare-table',
   glossary: 'glossary',
 };
@@ -53,17 +53,17 @@ function findModeScreenIdx(screens: LeftPanelScreen[], mode: QAMode): number {
 function buildScreenPatch(
   mode: QAMode,
   analysis: {
-    agentSteps?: AgentStep[];
+    analysisSteps?: AnalysisStep[];
     compareRows?: CompareRow[];
     glossaryEntries?: GlossaryEntry[];
   },
   files: StoredFileMeta[],
 ): Partial<LeftPanelScreen> {
-  if (mode === 'resume' && analysis.agentSteps)
+  if (mode === 'resume' && analysis.analysisSteps)
     return {
-      type: 'agent-steps',
+      type: 'analysis-steps',
       label: 'Resume analysis',
-      agentSteps: analysis.agentSteps,
+      analysisSteps: analysis.analysisSteps,
     };
   if (mode === 'compare' && analysis.compareRows)
     return {
@@ -184,14 +184,14 @@ async function fetchChat(
 
 /**
  * Mode-specific analysis — calls FastAPI.
- * Returns agentSteps, compareRows, or glossaryEntries depending on mode.
+ * Returns analysisSteps, compareRows, or glossaryEntries depending on mode.
  */
 async function fetchAnalyze(
   collectionId: string,
   mode: QAMode,
   files: StoredFileMeta[],
 ): Promise<{
-  agentSteps?: AgentStep[];
+  analysisSteps?: AnalysisStep[];
   compareRows?: CompareRow[];
   glossaryEntries?: GlossaryEntry[];
   mismatch?: boolean;
@@ -309,6 +309,9 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
         );
 
         const { clean, hasQuizCta, hasQuizRedirect } = parseTokens(fullText);
+        const userAskedForQuiz = /quiz|test|practice/i.test(
+          history[history.length - 1]?.content || '',
+        );
         setMessages((prev) =>
           prev.map((m) =>
             m.id === msgId
@@ -316,7 +319,8 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
                   ...m,
                   content: clean,
                   isLoading: false,
-                  showQuizCta: hasQuizCta && !hasQuizRedirect,
+                  showQuizCta:
+                    hasQuizCta && userAskedForQuiz && !hasQuizRedirect,
                   showQuizRedirect: hasQuizRedirect,
                 }
               : m,

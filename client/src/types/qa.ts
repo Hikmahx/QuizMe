@@ -30,12 +30,12 @@ export interface QAChatMessage {
 export type LeftScreenType =
   | 'info' // initial landing state
   | 'loading' // AI confirming mode
-  | 'agent-steps' // Resume mode result
+  | 'analysis-steps' // Resume mode result
   | 'compare-table' // Compare mode result
   | 'glossary' // Glossary mode result
   | 'default-result'; // Default mode result
 
-export interface AgentStep {
+export interface AnalysisStep {
   id: string;
   icon: string; // ionicon name
   label: string;
@@ -59,7 +59,7 @@ export interface LeftPanelScreen {
   mode: QAMode;
   label: string; // Short label for the screen indicator (e.g. "Resume analysis") */
   // mode-specific data
-  agentSteps?: AgentStep[];
+  analysisSteps?: AnalysisStep[];
   compareFiles?: string[];
   compareRows?: CompareRow[];
   glossaryEntries?: GlossaryEntry[];

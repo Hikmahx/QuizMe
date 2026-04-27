@@ -4,7 +4,7 @@ import { LeftPanelScreen } from '@/types/qa';
 import { StoredFileMeta } from '@/types';
 import InfoPanel from './panels/InfoPanel';
 import LoadingPanel from './panels/LoadingPanel';
-import AgentStepsPanel from './panels/AgentStepsPanel';
+import AnalysisStepsPanel from './panels/AnalysisStepsPanel';
 import CompareTablePanel from './panels/CompareTablePanel';
 import GlossaryPanel from './panels/GlossaryPanel';
 import DefaultResultPanel from './panels/DefaultResultPanel';
@@ -14,7 +14,7 @@ interface LeftPanelProps {
   currentIndex: number;
   onNavigate: (dir: 'prev' | 'next') => void;
   selectedFiles: StoredFileMeta[];
-  isAnalysing: boolean;  // When true, shows a loading overlay instead of screen content
+  isAnalysing: boolean; // When true, shows a loading overlay instead of screen content
 }
 
 function ScreenContent({
@@ -27,8 +27,8 @@ function ScreenContent({
   switch (screen.type) {
     case 'info':
       return <InfoPanel mode={screen.mode} selectedFiles={selectedFiles} />;
-    case 'agent-steps':
-      return <AgentStepsPanel steps={screen.agentSteps ?? []} />;
+    case 'analysis-steps':
+      return <AnalysisStepsPanel steps={screen.analysisSteps ?? []} />;
     case 'compare-table':
       return (
         <CompareTablePanel
@@ -67,7 +67,10 @@ export default function LeftPanel({
             aria-label='Previous screen'
             className='w-8 h-8 flex items-center justify-center rounded-xl border border-app-text-secondary/20 text-app-text-secondary hover:text-app-text hover:border-app-text-secondary/40 disabled:opacity-30 disabled:cursor-not-allowed transition-all'
           >
-            <ion-icon name='chevron-back-outline' style={{ fontSize: '14px' }} />
+            <ion-icon
+              name='chevron-back-outline'
+              style={{ fontSize: '14px' }}
+            />
           </button>
 
           {/* Pill indicators */}
@@ -95,7 +98,10 @@ export default function LeftPanel({
             aria-label='Next screen'
             className='w-8 h-8 flex items-center justify-center rounded-xl border border-app-text-secondary/20 text-app-text-secondary hover:text-app-text hover:border-app-text-secondary/40 disabled:opacity-30 disabled:cursor-not-allowed transition-all'
           >
-            <ion-icon name='chevron-forward-outline' style={{ fontSize: '14px' }} />
+            <ion-icon
+              name='chevron-forward-outline'
+              style={{ fontSize: '14px' }}
+            />
           </button>
         </div>
       )}

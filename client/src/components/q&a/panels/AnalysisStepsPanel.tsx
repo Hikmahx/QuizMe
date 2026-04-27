@@ -1,6 +1,6 @@
 'use client';
 
-import { AgentStep } from '@/types/qa';
+import { AnalysisStep } from '@/types/qa';
 import ExportButton from '../ExportButton';
 
 const STATUS_CONFIG = {
@@ -30,11 +30,11 @@ const STATUS_CONFIG = {
   },
 };
 
-interface AgentStepsPanelProps {
-  steps: AgentStep[];
+interface AnalysisStepsPanelProps {
+  steps: AnalysisStep[];
 }
 
-export default function AgentStepsPanel({ steps }: AgentStepsPanelProps) {
+export default function AnalysisStepsPanel({ steps }: AnalysisStepsPanelProps) {
   const completedCount = steps.filter((s) => s.status === 'done').length;
 
   return (
@@ -47,7 +47,7 @@ export default function AgentStepsPanel({ steps }: AgentStepsPanelProps) {
             {completedCount}/{steps.length} steps complete
           </p>
         </div>
-        <ExportButton targetId='agent-steps-export' label='Export' />
+        <ExportButton targetId='analysis-steps-export' label='Export' />
       </div>
 
       {/* Progress bar */}
@@ -59,7 +59,10 @@ export default function AgentStepsPanel({ steps }: AgentStepsPanelProps) {
       </div>
 
       {/* Steps */}
-      <div id='agent-steps-export' className='flex flex-col gap-2 flex-1 overflow-y-auto'>
+      <div
+        id='analysis-steps-export'
+        className='flex flex-col gap-2 flex-1 overflow-y-auto'
+      >
         {steps.map((step, i) => {
           const cfg = STATUS_CONFIG[step.status];
           return (
@@ -69,15 +72,23 @@ export default function AgentStepsPanel({ steps }: AgentStepsPanelProps) {
                 <div className='absolute left-5 top-10 bottom-0 w-px bg-app-text-secondary/15' />
               )}
 
-              <div className={`flex items-start gap-3 p-3 rounded-xl border ${cfg.ring} transition-all`}>
+              <div
+                className={`flex items-start gap-3 p-3 rounded-xl border ${cfg.ring} transition-all`}
+              >
                 {/* Icon circle */}
                 <div className='w-8 h-8 rounded-lg bg-app-bg/50 flex items-center justify-center flex-shrink-0 mt-0.5'>
-                  <ion-icon name={step.icon} style={{ fontSize: '16px' }} className={cfg.text} />
+                  <ion-icon
+                    name={step.icon}
+                    style={{ fontSize: '16px' }}
+                    className={cfg.text}
+                  />
                 </div>
 
                 <div className='flex-1 min-w-0'>
                   <div className='flex items-center gap-2'>
-                    <span className='text-app-text text-sm font-medium'>{step.label}</span>
+                    <span className='text-app-text text-sm font-medium'>
+                      {step.label}
+                    </span>
                     {step.status === 'active' && (
                       <span className='flex gap-0.5'>
                         {[0, 1, 2].map((d) => (
@@ -90,7 +101,10 @@ export default function AgentStepsPanel({ steps }: AgentStepsPanelProps) {
                       </span>
                     )}
                     {step.status === 'done' && (
-                      <ion-icon name='checkmark-circle' style={{ fontSize: '14px', color: '#26d782' }} />
+                      <ion-icon
+                        name='checkmark-circle'
+                        style={{ fontSize: '14px', color: '#26d782' }}
+                      />
                     )}
                   </div>
                   {step.detail && (

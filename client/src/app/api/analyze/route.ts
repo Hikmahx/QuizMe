@@ -13,7 +13,7 @@ const PROMPTS: Record<QAMode, string> = {
 Return ONLY valid JSON — no markdown, no explanation:
 {
   "mismatch": false,
-  "agentSteps": [
+  "analysisSteps": [
     {"id":"1","icon":"document-text-outline","label":"Reading resume","detail":"<real detail from the doc>","status":"done"},
     {"id":"2","icon":"briefcase-outline","label":"Reading job description","detail":"<real detail>","status":"done"},
     {"id":"3","icon":"analytics-outline","label":"Skill gap analysis","detail":"<N matching, M missing skills>","status":"done"},
