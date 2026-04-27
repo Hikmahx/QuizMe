@@ -60,7 +60,7 @@ def qa_analyze(body: QAAnalyzeRequest):
     """
     Run mode-specific analysis and return left-panel content.
 
-    resume  → agentSteps  (skill gap findings, suggestions, cover letter status)
+    resume  → analysisSteps  (skill gap findings, suggestions, cover letter status)
     compare → compareRows (structured comparison table, one column per document)
     glossary → glossaryEntries (technical terms + definitions, alphabetical)
 

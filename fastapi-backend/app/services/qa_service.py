@@ -2,21 +2,24 @@ import json
 import logging
 import re
 from app.llm.router import get_llm_response
-
 from app.core.config import get_settings
 from app.rag.retriever import retrieve_chunks, retrieve_all_chunks
 
 settings = get_settings()
-logger   = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 # Helpers
 
 def _extract_json(text: str) -> str:
-    """Strip markdown fences that the LLM sometimes adds despite instructions."""
     text = re.sub(r"```(?:json)?\s*", "", text)
-    text = re.sub(r"```\s*",          "", text)
+    text = re.sub(r"```\s*", "", text)
     return text.strip()
+
+
+# Limit context size to avoid token overflow and keep LLM responses fast/cost-efficient
+def _truncate_context(context: str, max_chars: int = 8000) -> str:
+    return context[:max_chars]
 
 
 def _build_context(collection_id: str, query: str, top_k: int | None = None) -> str:
@@ -26,8 +29,7 @@ def _build_context(collection_id: str, query: str, top_k: int | None = None) -> 
     if not chunks:
         return ""
     return "\n\n---\n\n".join(
-        f"[From: {c['doc_name']}]\n{c['content']}"
-        for c in chunks
+        f"[From: {c['doc_name']}]\n{c['content']}" for c in chunks
     )
 
 
@@ -37,12 +39,40 @@ def _build_all_context(collection_id: str) -> str:
     if not chunks:
         return ""
     return "\n\n---\n\n".join(
-        f"[From: {c['doc_name']}]\n{c['content']}"
-        for c in chunks
+        f"[From: {c['doc_name']}]\n{c['content']}" for c in chunks
     )
 
 
-# 1. Streaming chat
+# Simple keyword-based intent detection to short-circuit quiz requests without LLM
+def _detect_intent(message: str) -> str:
+    msg = message.lower()
+    quiz_phrases = [
+        "quiz me", "test me", "test my knowledge",
+        "give me a quiz", "let me try", "i want a quiz"
+    ]
+    return "quiz" if any(p in msg for p in quiz_phrases) else "normal"
+
+
+# Build a better retrieval query by combining the latest message with prior user context
+def _build_query(messages: list[dict]) -> str:
+    if not messages:
+        return ""
+
+    last = messages[-1]["content"]
+
+    if len(messages) < 2:
+        return last
+
+    prev_user = next(
+        (m["content"] for m in reversed(messages[:-1]) if m["role"] == "user"),
+        "",
+    )
+
+    return f"{prev_user}\nFollow-up: {last}"
+
+
+
+# Streaming Chat
 
 def _system_prompt(mode: str, file_names: list[str]) -> str:
     """
@@ -53,48 +83,32 @@ def _system_prompt(mode: str, file_names: list[str]) -> str:
       [QUIZ_REDIRECT] — use ONLY when the user explicitly asks to be tested/quizzed;
                         the frontend will show a navigation button to the quiz page
     """
-    files  = ", ".join(file_names) if file_names else "the uploaded documents"
-    base   = (
+    files = ", ".join(file_names) if file_names else "the uploaded documents"
+    base = (
         f"You are an AI assistant helping the user understand their uploaded documents: {files}. "
-        "Answer concisely and clearly. Relevant document excerpts are provided in each message."
+        "Answer clearly and concisely using the provided context."
     )
-    quiz   = (
-        "\n\nAt the end of any substantive answer (not a one-liner), add [QUIZ_CTA] on its own line."
-        "\n\nIf the user asks to test themselves, be quizzed, check their knowledge, or any similar intent, "
-        "respond with a brief encouraging sentence then add [QUIZ_REDIRECT] on its own line. "
-        "Do NOT add [QUIZ_REDIRECT] for any other reason."
+    quiz = (
+        "\n\n[QUIZ_CTA] RULES:"
+        "\n- ONLY include [QUIZ_CTA] if the user expresses interest in testing themselves, practicing, or learning deeply."
+        "\n- You MAY occasionally suggest a quiz (sparingly, not more than once every few responses)."
+        "\n- DO NOT include [QUIZ_CTA] in every answer."
+        "\n\n[QUIZ_REDIRECT] RULES:"
+        "\n- ONLY include [QUIZ_REDIRECT] if the user EXPLICITLY asks to be tested or take a quiz."
+        "\n- When using it, respond briefly and then add [QUIZ_REDIRECT] on its own line."
     )
 
     prompts = {
-        "default": (
-            f"{base} Answer questions grounded in the document content. "
-            "If the answer is not in the documents, say so clearly rather than guessing.{quiz}"
-        ),
-        "resume": (
-            f"{base} You are in Resume Mode. "
-            "Analyse skill gaps between the resume and job description, suggest specific rewrites, "
-            "and draft cover letter sections when asked. Be specific and actionable."
-        ),
-        "compare": (
-            f"{base} You are in Compare Mode. "
-            "Compare and contrast the documents across relevant dimensions. "
-            "Reference specific documents by name when pointing out differences.{quiz}"
-        ),
-        "glossary": (
-            f"{base} You are in Glossary Mode. "
-            "Help define and explain technical terminology from the documents. "
-            "When asked about a term, explain it in context of how it is used in the document.{quiz}"
-        ),
+        "default": f"{base} Answer only from the documents. Say if unsure.{quiz}",
+        "resume": f"{base} You are in Resume Mode. Analyse skill gaps and suggest improvements.",
+        "compare": f"{base} You are in Compare Mode. Compare documents clearly.{quiz}",
+        "glossary": f"{base} You are in Glossary Mode. Explain technical terms in context.{quiz}",
     }
-    return prompts.get(mode, prompts["default"]).format(quiz=quiz)
+
+    return prompts.get(mode, prompts["default"])
 
 
-def stream_chat(
-    collection_id: str,
-    mode:          str,
-    messages:      list[dict],
-    file_names:    list[str],
-):
+def stream_chat(collection_id: str, mode: str, messages: list[dict], file_names: list[str]):
     """
     Generator that yields UTF-8 encoded text chunks from LLM.
 
@@ -105,23 +119,29 @@ def stream_chat(
     if not messages:
         return
 
-    # Use the last user message as the retrieval query
     last_user = next(
         (m["content"] for m in reversed(messages) if m["role"] == "user"),
         "",
     )
-    context = _build_context(collection_id, last_user, top_k=settings.RETRIEVAL_TOP_K)
 
-    # Inject document context into the last user message
+    # Intent detection (deterministic)
+    if _detect_intent(last_user) == "quiz":
+        yield "Sure — let's test your knowledge.\n\n[QUIZ_REDIRECT]".encode("utf-8")
+        return
+
+    query = _build_query(messages)
+    context = _build_context(collection_id, query)
+    context = _truncate_context(context)
+
     api_messages = []
     for i, m in enumerate(messages):
         if i == len(messages) - 1 and m["role"] == "user" and context:
             api_messages.append({
-                "role":    "user",
+                "role": "user",
                 "content": f"Relevant document excerpts:\n\n{context}\n\n---\n\n{m['content']}",
             })
         else:
-            api_messages.append({"role": m["role"], "content": m["content"]})
+            api_messages.append(m)
 
     stream = get_llm_response(
         messages=[
@@ -130,7 +150,7 @@ def stream_chat(
         ],
         temperature=0.7,
         max_tokens=settings.LLM_MAX_TOKENS,
-    ).strip()
+    )
 
     for chunk in stream:
         text = chunk.choices[0].delta.content or ""
@@ -138,7 +158,8 @@ def stream_chat(
             yield text.encode("utf-8")
 
 
-# 2. Mode analysis (left-panel content)
+# Mode Analysis
+
 def analyze_mode(collection_id: str, mode: str, file_names: list[str]) -> dict:
     """
     Run mode-specific analysis on the uploaded documents using RAG.
@@ -147,15 +168,16 @@ def analyze_mode(collection_id: str, mode: str, file_names: list[str]) -> dict:
     compare: Returns compareRows — one row per aspect, one value per document.
     glossary: Returns glossaryEntries — technical terms only, alphabetically sorted.
     """
-    context = _build_all_context(collection_id)
+    context = _truncate_context(_build_all_context(collection_id), 15000)
+
     if not context:
         return {"mismatch": True, "suggestions": ["default"]}
 
     if mode == "resume":
         return _analyze_resume(context)
-    elif mode == "compare":
+    if mode == "compare":
         return _analyze_compare(context, file_names)
-    elif mode == "glossary":
+    if mode == "glossary":
         return _analyze_glossary(context)
 
     return {"mismatch": False}
@@ -163,11 +185,11 @@ def analyze_mode(collection_id: str, mode: str, file_names: list[str]) -> dict:
 
 def _analyze_resume(context: str) -> dict:
     prompt = f"""Analyse these documents to perform a resume + job description review.
+Return ONLY JSON:
 
-Return ONLY valid JSON — no markdown, no explanation:
 {{
   "mismatch": false,
-  "agentSteps": [
+  "analysisSteps": [
     {{"id":"1","icon":"document-text-outline","label":"Reading resume","detail":"<specific detail from the resume>","status":"done"}},
     {{"id":"2","icon":"briefcase-outline","label":"Reading job description","detail":"<specific role/company detail>","status":"done"}},
     {{"id":"3","icon":"analytics-outline","label":"Skill gap analysis","detail":"<N matching skills, M missing skills — name specific skills>","status":"done"}},
@@ -250,11 +272,11 @@ def _call_analyze(prompt: str) -> dict:
         response = get_llm_response(
             messages=[
                 {"role": "system", "content": "You are a document analysis assistant. Return ONLY valid JSON."},
-                {"role": "user",   "content": prompt},
+                {"role": "user", "content": prompt},
             ],
             temperature=0.2,
             max_tokens=3000,
-        ).strip()
+        )
         raw  = response.choices[0].message.content or "{}"
         data = json.loads(_extract_json(raw))
         return data
@@ -263,7 +285,7 @@ def _call_analyze(prompt: str) -> dict:
         return {"mismatch": False}
 
 
-# 3. Auto mode detection
+# Mode Detection
 
 def detect_mode(collection_id: str, file_names: list[str]) -> dict:
     """
@@ -315,7 +337,7 @@ DOCUMENT CONTENT:
             ],
             temperature=0.1,
             max_tokens=200,
-        ).strip()
+        )
         raw  = response.choices[0].message.content or "{}"
         data = json.loads(_extract_json(raw))
         return {
