@@ -19,10 +19,7 @@ def _get_collection_id(files: list[FilePayload]) -> str:
     Ensures files are indexed before use.
     If the collection already exists, just touch it. If not, index first.
     """
-    collection_id = make_collection_id(
-        [{"name": f.name, "dataUrl": f.dataUrl} for f in files]
-    )
-
+    collection_id = make_collection_id([{"name": f.name, "dataUrl": f.dataUrl} for f in files])
     if not collection_exists(collection_id):
         index_files(files)
     else:
@@ -40,16 +37,16 @@ def _summarise_single_doc(chunks: list[dict], length: str, doc_name: str) -> str
     length_instruction = LENGTH_INSTRUCTIONS.get(length, LENGTH_INSTRUCTIONS["medium"])
 
     prompt = f"""\
-You are a document summarisation assistant.
-Below is the full text of a document called "{doc_name}".
-{length_instruction}
-Focus on the main ideas, key points, and important conclusions.
-Do not add information that is not in the document.
+        You are a document summarisation assistant.
+        Below is the full text of a document called "{doc_name}".
+        {length_instruction}
+        Focus on the main ideas, key points, and important conclusions.
+        Do not add information that is not in the document.
 
-DOCUMENT:
-{context}
+        DOCUMENT:
+        {context}
 
-SUMMARY:"""
+        SUMMARY:"""
 
     return get_llm_response(
         messages=[{"role": "user", "content": prompt}],
@@ -82,17 +79,17 @@ def _summarise_combined(all_chunks: list[dict], length: str) -> tuple[str, bool]
     length_instruction = LENGTH_INSTRUCTIONS.get(length, LENGTH_INSTRUCTIONS["medium"])
 
     prompt = f"""\
-You are summarising multiple documents together.
-{length_instruction}
-If the documents are clearly unrelated topics, respond with exactly:
-UNRELATED_DOCUMENTS
+        You are summarising multiple documents together.
+        {length_instruction}
+        If the documents are clearly unrelated topics, respond with exactly:
+        UNRELATED_DOCUMENTS
 
-Otherwise, write a unified summary covering all documents.
+        Otherwise, write a unified summary covering all documents.
 
-DOCUMENTS:
-{context}
+        DOCUMENTS:
+        {context}
 
-SUMMARY:"""
+        SUMMARY:"""
 
     result = get_llm_response(
         messages=[{"role": "user", "content": prompt}],
@@ -106,11 +103,7 @@ SUMMARY:"""
     return result, False
 
 
-def generate_summary(
-    files: list[FilePayload],
-    length: str,
-    style: str,
-) -> dict:
+def generate_summary(files: list[FilePayload], length: str, style: str) -> dict:
     """
     Main summary service function, called by the route handler.
     Returns a dict matching the SummaryResponse schema.
@@ -136,7 +129,6 @@ def generate_summary(
 
     # Doc-by-doc mode (and fallback from combined)
     if style in ("doc-by-doc", "default") or len(files) == 1:
-        fell_back_from_combined = style == "doc-by-doc" and len(files) > 1
 
         chunks_by_doc: dict[str, list[dict]] = {}
         for chunk in all_chunks:
@@ -154,7 +146,7 @@ def generate_summary(
             "collection_id": collection_id,
             "style": "doc-by-doc" if len(files) > 1 else "default",
             "summaries": summaries,
-            "fallback": fell_back_from_combined,
+            "fallback": (style == "doc-by-doc"),
         }
 
     raise ValueError(f"Unknown summary style: {style}")
