@@ -8,11 +8,8 @@ import { FEATURE_MAP } from '@/lib/features';
 import { useSummaryFlow } from '@/hooks/useSummaryFlow';
 import { useQAFlow } from '@/hooks/useQAFlow';
 import { QAMode } from '@/types/qa';
-import { StoredFileMeta } from '@/types';
 import LeftPanel from '@/components/q&a/LeftPanel';
 import ChatPanel from '@/components/q&a/ChatPanel';
-import FileSelectorPopover from '@/components/q&a/FileSelectorPopover';
-import FileChangeModal from '@/components/q&a/FileChangeModal';
 
 const feature = FEATURE_MAP['ask-questions'];
 
@@ -42,19 +39,14 @@ function QAChatInner() {
     ? (rawMode as QAMode)
     : 'default';
 
-  const { files } = useSummaryFlow();
+  // hydrated = true once localStorage files have been loaded
+  const { files, hydrated } = useSummaryFlow();
   const [mobileTab, setMobileTab] = useState<MobileTab>('chat');
-  // Pending file selection from the popover — shown in modal before applying
-  const [pendingFileSelection, setPendingFileSelection] = useState<
-    StoredFileMeta[] | null
-  >(null);
 
   const {
     mode,
     changeMode,
     selectedFiles,
-    allFiles,
-    confirmFileChange,
     messages,
     isStreaming,
     isAnalysing,
@@ -65,30 +57,19 @@ function QAChatInner() {
     initChat,
   } = useQAFlow(files, initialMode);
 
+  // Wait for hydration so files are loaded before initChat runs.
+  // This prevents: double-greeting, 0/N files, and failed auto-detection.
   useEffect(() => {
-    initChat();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const handleRequestSave = (newSelection: StoredFileMeta[]) => {
-    setPendingFileSelection(newSelection);
-  };
-
-  const handleConfirmFileChange = () => {
-    if (pendingFileSelection) {
-      confirmFileChange(pendingFileSelection);
-      setPendingFileSelection(null);
+    if (hydrated && files.length > 0) {
+      initChat();
     }
-  };
-
-  const isRemoving =
-    pendingFileSelection !== null &&
-    pendingFileSelection.length < selectedFiles.length;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated]);
 
   // Left column content
   const LeftContent = (
     <div className='flex flex-col h-full gap-3 overflow-hidden'>
-      {/* Top bar */}
+      {/* Top bar — mode badge + read-only file count */}
       <div className='flex items-center justify-between flex-shrink-0'>
         <span
           className={`inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border ${MODE_COLOURS[mode]}`}
@@ -96,11 +77,10 @@ function QAChatInner() {
           <span className='w-1.5 h-1.5 rounded-full bg-current' />
           {MODE_LABEL[mode]}
         </span>
-        <FileSelectorPopover
-          allFiles={allFiles}
-          selectedFiles={selectedFiles}
-          onRequestSave={handleRequestSave}
-        />
+        <span className='text-xs text-app-text-secondary border border-app-text-secondary/15 rounded-xl px-3 py-1.5 bg-app-card flex items-center gap-1.5'>
+          <ion-icon name='documents-outline' style={{ fontSize: '13px' }} />
+          {selectedFiles.length}/{files.length} file{files.length !== 1 ? 's' : ''}
+        </span>
       </div>
 
       {/* Panel */}
@@ -142,7 +122,7 @@ function QAChatInner() {
           )}
         </div>
 
-        {/* Quick mode switcher — compact pill buttons */}
+        {/* Quick mode switcher */}
         <div className='flex gap-1'>
           {(['default', 'resume', 'compare', 'glossary'] as QAMode[])
             .filter((m) => m !== mode)
@@ -230,28 +210,6 @@ function QAChatInner() {
           )}
         </div>
       </main>
-
-      {/* File change confirmation modal */}
-      {pendingFileSelection && (
-        <FileChangeModal
-          fileName={
-            isRemoving
-              ? selectedFiles
-                  .filter(
-                    (f) => !pendingFileSelection.some((p) => p.name === f.name),
-                  )
-                  .map((f) => f.name)
-                  .join(', ')
-              : pendingFileSelection
-                  .filter((f) => !selectedFiles.some((s) => s.name === f.name))
-                  .map((f) => f.name)
-                  .join(', ')
-          }
-          isRemoving={isRemoving}
-          onConfirm={handleConfirmFileChange}
-          onCancel={() => setPendingFileSelection(null)}
-        />
-      )}
     </>
   );
 }

@@ -20,7 +20,7 @@
  *      the files and store the returned collection_id.
  */
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { StoredFileMeta } from '@/types';
 import {
   QAMode,
@@ -108,6 +108,27 @@ function saveCollectionId(id: string) {
         collection_id: id,
       }),
     );
+  } catch {
+    /* quota — non-fatal */
+  }
+}
+
+function getStoredSelectedFileNames(): string[] | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem('quizme:selected-files');
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveSelectedFileNames(names: string[]) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem('quizme:selected-files', JSON.stringify(names));
   } catch {
     /* quota — non-fatal */
   }
@@ -250,8 +271,32 @@ function parseTokens(text: string): {
 
 export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
   const [mode, setModeState] = useState<QAMode>(initialMode);
-  const [selectedFiles, setSelectedFiles] =
-    useState<StoredFileMeta[]>(allFiles);
+
+  // selectedFiles is derived from allFiles + stored names each time allFiles
+  // changes (i.e. after hydration). We use a ref to detect the first real
+  // population so we don't overwrite a user's mid-session selection.
+  const filesInitialised = useRef(false);
+  const [selectedFiles, setSelectedFiles] = useState<StoredFileMeta[]>([]);
+
+  // Once allFiles arrives (after hydration), resolve the correct selection.
+  // We only do this once — after that, user changes drive the state directly.
+  if (!filesInitialised.current && allFiles.length > 0) {
+    filesInitialised.current = true;
+    const storedNames = getStoredSelectedFileNames();
+    let resolved: StoredFileMeta[];
+    if (storedNames && storedNames.length > 0) {
+      const fromStore = allFiles.filter((f) => storedNames.includes(f.name));
+      resolved = fromStore.length > 0 ? fromStore : allFiles;
+    } else {
+      resolved = allFiles;
+      // Persist the default (all files) so future reloads remember it
+      saveSelectedFileNames(allFiles.map((f) => f.name));
+    }
+    // Synchronously set state during render — safe because filesInitialised
+    // ensures this only runs once, before the component has painted with files.
+    setSelectedFiles(resolved);
+  }
+
   const [collectionId, setCollectionId] = useState<string>('');
   const [messages, setMessages] = useState<QAChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -262,9 +307,23 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
   ]);
   const [currentScreenIndex, setCurrentScreenIndex] = useState(0);
 
+  // Ref-based guard so initChat can never run twice regardless of closure staleness
+  const initDone = useRef(false);
+
   const abortRef = useRef<AbortController | null>(null);
   // Stores the resolved collectionId for use inside async callbacks
   const collectionIdRef = useRef<string>('');
+  // Keep a live ref to selectedFiles for use inside initChat without stale closure
+  const selectedFilesRef = useRef<StoredFileMeta[]>(selectedFiles);
+  useEffect(() => {
+    selectedFilesRef.current = selectedFiles;
+  }, [selectedFiles]);
+
+  // Persist selection and update state together
+  const updateSelectedFiles = useCallback((files: StoredFileMeta[]) => {
+    saveSelectedFileNames(files.map((f) => f.name));
+    setSelectedFiles(files);
+  }, []);
 
   // Message helpers
 
@@ -326,6 +385,24 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
               : m,
           ),
         );
+      } catch (err) {
+        // Always clear the loading bubble — even if the stream dies mid-flight
+        const isAbort = (err as Error).name === 'AbortError';
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === msgId
+              ? {
+                  ...m,
+                  content: isAbort
+                    ? ''
+                    : fullText.trim() ||
+                      'Something went wrong. Please try again.',
+                  isLoading: false,
+                }
+              : m,
+          ),
+        );
+        if (!isAbort) throw err; // re-throw so callers can show their own error UI
       } finally {
         setIsStreaming(false);
       }
@@ -435,6 +512,7 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
               i === existingIdx ? { ...s, mode: newMode, ...patch } : s,
             ),
           );
+          setCurrentScreenIndex(existingIdx);
         } else {
           const newScreen: LeftPanelScreen = {
             id: screenUid(),
@@ -443,26 +521,50 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
             label: 'New',
             ...patch,
           };
-          setLeftScreens((prev) => {
-            const next = [...prev, newScreen];
-            setCurrentScreenIndex(next.length - 1);
-            return next;
+          setLeftScreens((prev) => [...prev, newScreen]);
+          // Use functional update to get the latest length without racing
+          setCurrentScreenIndex((prev) => {
+            // We just added one screen, so new index = current length
+            // But we can't read leftScreens here, so use a ref trick below
+            return prev + 1;
           });
         }
 
+        const SWITCH_GREETINGS: Record<QAMode, string> = {
+          default:
+            "I've switched back to Default Q&A. What would you like to know?",
+          resume:
+            "I've switched to Resume Mode and the analysis panel on the left is ready. Greet me briefly — mention the panel and offer to help with specific questions, cover letter drafting, or bullet point rewrites. Do not reproduce the full analysis.",
+          compare:
+            "I've switched to Compare Mode and the comparison table is on the left. Greet me briefly — mention the table and offer to answer specific follow-up questions.",
+          glossary:
+            "I've switched to Glossary Mode and the searchable glossary panel on the left has all extracted terms. Greet me briefly — mention the panel and offer to explain any specific term in more depth. Do not list or re-extract terms.",
+        };
         await greetForMode(
           newMode,
           selectedFiles,
           historySnapshot,
-          `I've switched to ${newMode} mode. Please greet me appropriately.`,
+          SWITCH_GREETINGS[newMode],
           colId,
         );
       } catch (err) {
         if ((err as Error).name !== 'AbortError') {
-          if (existingIdx === -1) setCurrentScreenIndex(0);
+          // Analysis failed — still switch mode visually and greet,
+          // but show an error state in the panel rather than abandoning.
+          if (existingIdx === -1) {
+            // Add a placeholder screen so the panel at least shows the right mode
+            const placeholderScreen: LeftPanelScreen = {
+              id: screenUid(),
+              type: 'info',
+              mode: newMode,
+              label: newMode,
+            };
+            setLeftScreens((prev) => [...prev, placeholderScreen]);
+            setCurrentScreenIndex((prev) => prev + 1);
+          }
           addMessage({
             role: 'assistant',
-            content: 'Something went wrong switching modes. Please try again.',
+            content: `There was a problem loading the **${newMode} panel** — the AI service may be temporarily unavailable. You can still ask questions in chat, or try switching modes again.`,
           });
         }
       } finally {
@@ -485,7 +587,7 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
   const confirmFileChange = useCallback(
     async (newFiles: StoredFileMeta[]) => {
       if (isAnalysing || isStreaming) return;
-      setSelectedFiles(newFiles);
+      updateSelectedFiles(newFiles);
 
       const historySnapshot = messages;
       addMessage({
@@ -580,6 +682,7 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
       leftScreens,
       addMessage,
       greetForMode,
+      updateSelectedFiles,
     ],
   );
 
@@ -654,7 +757,13 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
   // Initial chat
 
   const initChat = useCallback(async () => {
-    if (messages.length > 0) return;
+    // Ref-based guard — the messages.length check is unreliable because
+    // initChat captures a stale closure where messages is always [].
+    if (initDone.current) return;
+    initDone.current = true;
+
+    // Always read the live selection from the ref, not a stale closure value.
+    const currentFiles = selectedFilesRef.current;
 
     const MODE_GREETINGS: Record<QAMode, string> = {
       default: "I've reviewed your documents. What would you like to know?",
@@ -669,34 +778,37 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
     // Step 1: ensure we have a collection_id
     let colId = '';
     try {
-      colId = await ensureCollectionId(selectedFiles);
+      colId = await ensureCollectionId(currentFiles);
       collectionIdRef.current = colId;
       setCollectionId(colId);
     } catch (err) {
       console.error('Could not index files:', err);
-      // Proceed without collection_id — chat will still work via general knowledge
     }
 
     // Step 2: auto mode detection (only in default mode on first load)
-    if (mode === 'default' && colId && selectedFiles.length > 0) {
+    if (mode === 'default' && colId && currentFiles.length > 0) {
       try {
-        const detect = await fetchDetect(colId, selectedFiles);
+        const detect = await fetchDetect(colId, currentFiles);
         if (
           detect.suggestion &&
-          (['resume', 'compare'] as QAMode[]).includes(detect.suggestion)
+          (['resume', 'compare', 'glossary'] as QAMode[]).includes(
+            detect.suggestion,
+          )
         ) {
-          // Add a suggestion message before the greeting
+          const suggestedMode = detect.suggestion as QAMode;
+
+          // Show the suggestion card in chat
           setMessages([
             {
               id: uid(),
               role: 'assistant',
               content:
                 detect.reason ||
-                `These documents look like they suit **${detect.suggestion} mode**.`,
+                `These documents look like they suit **${suggestedMode} mode**.`,
               isLoading: false,
               timestamp: Date.now(),
               autoModeSuggestion: {
-                mode: detect.suggestion as QAMode,
+                mode: suggestedMode,
                 reason: detect.reason,
               },
             },
@@ -711,7 +823,7 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
     if (mode !== 'default' && colId) {
       setIsAnalysing(true);
       try {
-        const analysis = await fetchAnalyze(colId, mode, selectedFiles);
+        const analysis = await fetchAnalyze(colId, mode, currentFiles);
 
         if (analysis.mismatch) {
           setIsAnalysing(false);
@@ -727,7 +839,7 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
           return;
         }
 
-        const patch = buildScreenPatch(mode, analysis, selectedFiles);
+        const patch = buildScreenPatch(mode, analysis, currentFiles);
         const newScreen: LeftPanelScreen = {
           id: screenUid(),
           type: 'info',
@@ -735,11 +847,8 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
           label: 'Overview',
           ...patch,
         };
-        setLeftScreens((prev) => {
-          const next = [...prev, newScreen];
-          setCurrentScreenIndex(next.length - 1);
-          return next;
-        });
+        setLeftScreens((prev) => [...prev, newScreen]);
+        setCurrentScreenIndex((prev) => prev + 1);
       } catch {
         /* silent — greet anyway */
       } finally {
@@ -760,15 +869,25 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
       },
     ]);
 
+    const PANEL_HINTS: Partial<Record<QAMode, string>> = {
+      resume:
+        ' The analysis panel on the left is populated — do not reproduce it. Offer to answer specific questions, help with cover letter drafting, or rewrite bullet points.',
+      compare:
+        ' The comparison table is on the left — do not reproduce it. Offer to answer follow-up questions.',
+      glossary:
+        ' The searchable glossary panel on the left has all extracted terms — do not list them in chat. Offer to explain any specific term in more depth.',
+    };
+    const panelHint = PANEL_HINTS[mode] ?? '';
+
     try {
       await streamIntoMessage(
         greetId,
         mode,
-        selectedFiles,
+        currentFiles,
         [
           {
             role: 'user',
-            content: `Greet the user for ${mode} mode. Start with: "${MODE_GREETINGS[mode]}"`,
+            content: `Greet the user for ${mode} mode. Start with: "${MODE_GREETINGS[mode]}"${panelHint}`,
           },
         ],
         colId,

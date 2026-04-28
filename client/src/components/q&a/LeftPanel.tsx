@@ -52,9 +52,11 @@ export default function LeftPanel({
   selectedFiles,
   isAnalysing,
 }: LeftPanelProps) {
-  const screen = screens[currentIndex];
-  const canPrev = currentIndex > 0;
-  const canNext = currentIndex < screens.length - 1;
+  // Clamp index defensively — stale state can briefly go out of bounds
+  const safeIndex = Math.min(Math.max(0, currentIndex), screens.length - 1);
+  const screen = screens[safeIndex];
+  const canPrev = safeIndex > 0;
+  const canNext = safeIndex < screens.length - 1;
 
   return (
     <div className='flex flex-col h-full gap-3'>
@@ -84,7 +86,7 @@ export default function LeftPanel({
                 }}
                 className={[
                   'rounded-full transition-all duration-300',
-                  i === currentIndex
+                  i === safeIndex
                     ? 'w-5 h-1.5 bg-purple-500'
                     : 'w-1.5 h-1.5 bg-app-text-secondary/25 hover:bg-app-text-secondary/50',
                 ].join(' ')}

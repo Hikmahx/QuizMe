@@ -123,6 +123,33 @@ function MessageBubble({ msg, onModeChange }: BubbleProps) {
         </div>
       </div>
 
+      {/* Auto mode suggestion — Yes / No / Dismiss */}
+      {msg.autoModeSuggestion && !msg.isLoading && (
+        <div className='ml-9 mt-2'>
+          <div className='bg-purple-500/8 border border-purple-500/20 rounded-xl px-4 py-3 flex items-center justify-between gap-3'>
+            <div className='flex items-center gap-2.5'>
+              <ion-icon name={MODE_ICONS[msg.autoModeSuggestion.mode]} style={{ fontSize: '16px', color: '#A729F5' }} />
+              <div>
+                <p className='text-app-text text-xs font-semibold'>
+                  Switch to {MODE_LABEL[msg.autoModeSuggestion.mode]}?
+                </p>
+                <p className='text-app-text-secondary text-xs mt-0.5'>
+                  Detected from your documents
+                </p>
+              </div>
+            </div>
+            <div className='flex gap-2 flex-shrink-0'>
+              <button
+                onClick={() => onModeChange(msg.autoModeSuggestion!.mode)}
+                className='text-xs font-semibold px-3 py-1.5 rounded-lg bg-purple-500 text-white hover:bg-purple-400 transition-colors'
+              >
+                Yes, switch
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Mode suggestions (mismatch case) */}
       {msg.modeSuggestions && msg.modeSuggestions.length > 0 && (
         <div className='ml-9 flex flex-wrap gap-2 mt-1'>
