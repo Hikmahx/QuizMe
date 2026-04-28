@@ -1,7 +1,7 @@
 import json
 import logging
 import re
-from app.llm.router import get_llm_response
+from app.llm.router import get_llm_response, get_llm_stream
 from app.core.config import get_settings
 from app.rag.retriever import retrieve_chunks, retrieve_all_chunks
 
@@ -100,9 +100,29 @@ def _system_prompt(mode: str, file_names: list[str]) -> str:
 
     prompts = {
         "default": f"{base} Answer only from the documents. Say if unsure.{quiz}",
-        "resume": f"{base} You are in Resume Mode. Analyse skill gaps and suggest improvements.",
-        "compare": f"{base} You are in Compare Mode. Compare documents clearly.{quiz}",
-        "glossary": f"{base} You are in Glossary Mode. Explain technical terms in context.{quiz}",
+        "resume": (
+            f"{base} You are in Resume Mode. "
+            "The left panel already shows the full structured resume analysis (skill gaps, suggestions, cover letter readiness). "
+            "Do NOT reproduce that full analysis in chat. "
+            "Instead, answer the user's specific questions, expand on individual points from the analysis panel, "
+            "or help draft cover letter paragraphs and rewrite resume bullet points on request. "
+            "Keep answers focused and conversational — the panel handles the overview."
+        ),
+        "compare": (
+            f"{base} You are in Compare Mode. "
+            "The left panel shows the full comparison table. "
+            "Do not reproduce the full table in chat. "
+            "Answer specific follow-up questions about the comparison concisely.{quiz}"
+        ).format(quiz=quiz),
+        "glossary": (
+            f"{base} You are in Glossary Mode. "
+            "The left panel already contains a searchable, alphabetical glossary of every technical term extracted from the documents. "
+            "Do NOT list, re-extract, or dump glossary entries in chat — the user can browse the panel directly. "
+            "In chat only: (1) give a deeper explanation of a specific term the user asks about, "
+            "(2) explain how a term is used in context within the documents, "
+            "or (3) answer follow-up questions. "
+            "Keep answers brief and targeted. No bullet-point term dumps."
+        ),
     }
 
     return prompts.get(mode, prompts["default"])
@@ -143,7 +163,7 @@ def stream_chat(collection_id: str, mode: str, messages: list[dict], file_names:
         else:
             api_messages.append(m)
 
-    stream = get_llm_response(
+    stream = get_llm_stream(
         messages=[
             {"role": "system", "content": _system_prompt(mode, file_names)},
             *api_messages,
@@ -153,7 +173,11 @@ def stream_chat(collection_id: str, mode: str, messages: list[dict], file_names:
     )
 
     for chunk in stream:
-        text = chunk.choices[0].delta.content or ""
+        # chunk is a litellm streaming object
+        try:
+            text = chunk.choices[0].delta.content or ""
+        except (AttributeError, IndexError):
+            continue
         if text:
             yield text.encode("utf-8")
 
@@ -269,7 +293,7 @@ DOCUMENTS:
 def _call_analyze(prompt: str) -> dict:
     """Call LLM for analysis and parse the JSON response. Returns a safe fallback on error."""
     try:
-        response = get_llm_response(
+        raw = get_llm_response(
             messages=[
                 {"role": "system", "content": "You are a document analysis assistant. Return ONLY valid JSON."},
                 {"role": "user", "content": prompt},
@@ -277,8 +301,7 @@ def _call_analyze(prompt: str) -> dict:
             temperature=0.2,
             max_tokens=3000,
         )
-        raw  = response.choices[0].message.content or "{}"
-        data = json.loads(_extract_json(raw))
+        data = json.loads(_extract_json(raw or "{}"))
         return data
     except (json.JSONDecodeError, Exception) as e:
         logger.error("analyze error: %s", e)
@@ -330,7 +353,7 @@ DOCUMENT CONTENT:
 {context}"""
 
     try:
-        response = get_llm_response(
+        raw = get_llm_response(
             messages=[
                 {"role": "system", "content": "Analyse documents and return ONLY valid JSON."},
                 {"role": "user",   "content": prompt},
@@ -338,8 +361,7 @@ DOCUMENT CONTENT:
             temperature=0.1,
             max_tokens=200,
         )
-        raw  = response.choices[0].message.content or "{}"
-        data = json.loads(_extract_json(raw))
+        data = json.loads(_extract_json(raw or "{}"))
         return {
             "suggestion": data.get("suggestion"),
             "reason":     data.get("reason", ""),

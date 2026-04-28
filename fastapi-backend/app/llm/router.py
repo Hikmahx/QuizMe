@@ -6,8 +6,11 @@ If a provider fails (rate limit, auth, network), moves to the next.
 Raises RuntimeError only if ALL providers fail.
 
 Usage:
-    from app.llm.router import get_llm_response
-    text = get_llm_response(messages, temperature=0.1, max_tokens=2048)
+    from app.llm.router import get_llm_response, get_llm_stream
+    text   = get_llm_response(messages, temperature=0.1, max_tokens=2048)
+    stream = get_llm_stream(messages, temperature=0.7, max_tokens=1024)
+    for chunk in stream:
+        text = chunk.choices[0].delta.content or ""
 """
 
 import logging
@@ -94,4 +97,52 @@ def get_llm_response(
 
     raise RuntimeError(
         f"All LLM providers failed. Last error: {last_error}"
+    )
+
+
+def get_llm_stream(
+    messages:    list[dict],
+    temperature: float | None = None,
+    max_tokens:  int   | None = None,
+):
+    """
+    Generator that streams tokens from the first available provider.
+
+    Unlike returning a raw litellm stream, this wraps iteration so that
+    mid-stream provider errors (e.g. NotFoundError on first chunk) also
+    trigger fallback to the next provider.
+
+    Yields litellm StreamingChoices chunks:
+        chunk.choices[0].delta.content
+    """
+    _temperature = temperature if temperature is not None else settings.LLM_TEMPERATURE
+    _max_tokens  = max_tokens  if max_tokens  is not None else settings.LLM_MAX_TOKENS
+
+    last_error: Exception | None = None
+
+    for name, model, api_key in _active_providers:
+        try:
+            stream = litellm.completion(
+                model=model,
+                messages=messages,
+                api_key=api_key,
+                temperature=_temperature,
+                max_tokens=_max_tokens,
+                stream=True,
+            )
+            logger.debug("LLM router (stream): '%s' started, iterating.", name)
+            # Iterate here so mid-stream errors are caught and trigger fallback
+            for chunk in stream:
+                yield chunk
+            return  # stream completed — done
+
+        except Exception as e:
+            logger.warning(
+                "LLM router (stream): '%s' failed (%s: %s). Trying next provider.",
+                name, type(e).__name__, str(e)[:120],
+            )
+            last_error = e
+
+    raise RuntimeError(
+        f"All LLM providers failed (stream). Last error: {last_error}"
     )
