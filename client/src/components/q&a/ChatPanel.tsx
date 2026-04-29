@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, KeyboardEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { QAChatMessage, QAMode } from '@/types/qa';
+import { renderMarkdown } from '@/utils/helpers';
 
 function TypingDots() {
   return (
@@ -39,16 +40,6 @@ const MODE_ICONS: Record<QAMode, string> = {
   compare: 'git-compare-outline',
   glossary: 'book-outline',
 };
-
-// Markdown-lite renderer
-function renderMarkdown(text: string): string {
-  return text
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    .replace(/`(.+?)`/g, '<code class="bg-app-bg/60 px-1 py-0.5 rounded text-xs font-mono">$1</code>')
-    .replace(/\n\n/g, '</p><p class="mt-2">')
-    .replace(/\n/g, '<br/>');
-}
 
 // Single message bubble
 interface BubbleProps {
