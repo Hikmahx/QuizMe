@@ -169,7 +169,7 @@ export default function ViewSummaryPage() {
               : 'Your document has been summarised below.'}
         </p>
 
-        {summary?.fallback && (
+        {/* {summary?.fallback && (
           <div className='flex items-start gap-3 bg-amber-500/10 border border-amber-400/30 rounded-xl p-4 mb-6'>
             <p className='text-amber-300 text-sm leading-relaxed'>
               <strong className='text-app-text'>
@@ -179,7 +179,7 @@ export default function ViewSummaryPage() {
               automatically.
             </p>
           </div>
-        )}
+        )} */}
 
         <InfoList
           items={[

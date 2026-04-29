@@ -26,7 +26,7 @@ export default function DocNavigator({
         disabled={currentIndex === 0}
         className='flex items-center gap-1.5 border border-app-text-secondary/20 rounded-lg px-3 py-2 text-app-text-secondary text-xs hover:bg-app-text-secondary/8 hover:text-app-text hover:border-app-text-secondary/40 disabled:opacity-30 disabled:cursor-not-allowed transition-all'
       >
-        ←{prevName && <span className='max-w-[80px] truncate'>{prevName}</span>}
+        ←{prevName && <span className='hidden md:block max-w-[80px] truncate'>{prevName}</span>}
       </button>
 
       <div className='text-center'>
@@ -43,7 +43,7 @@ export default function DocNavigator({
         disabled={currentIndex === total - 1}
         className='flex items-center gap-1.5 border border-app-text-secondary/20 rounded-lg px-3 py-2 text-app-text-secondary text-xs hover:bg-app-text-secondary/8 hover:text-app-text hover:border-app-text-secondary/40 disabled:opacity-30 disabled:cursor-not-allowed transition-all'
       >
-        {nextName && <span className='max-w-[80px] truncate'>{nextName}</span>}→
+        {nextName && <span className='hidden md:block max-w-[80px] truncate'>{nextName}</span>}→
       </button>
     </div>
   );
