@@ -19,7 +19,6 @@ function TypingDots() {
   );
 }
 
-// Mode badge labels
 const MODE_LABEL: Record<QAMode, string> = {
   default: 'Default Mode',
   resume: 'Resume Mode',
@@ -41,7 +40,6 @@ const MODE_ICONS: Record<QAMode, string> = {
   glossary: 'book-outline',
 };
 
-// Single message bubble
 interface BubbleProps {
   msg: QAChatMessage;
   onModeChange: (m: QAMode) => void;
@@ -51,7 +49,6 @@ function MessageBubble({ msg, onModeChange }: BubbleProps) {
   const router = useRouter();
   const isUser = msg.role === 'user';
 
-  // User special chips
   if (isUser && msg.modeChange) {
     return (
       <div className='flex justify-end'>
@@ -79,7 +76,6 @@ function MessageBubble({ msg, onModeChange }: BubbleProps) {
     );
   }
 
-  // Regular user message
   if (isUser) {
     return (
       <div className='flex justify-end'>
@@ -90,10 +86,8 @@ function MessageBubble({ msg, onModeChange }: BubbleProps) {
     );
   }
 
-  // AI message
   return (
     <div className='flex flex-col gap-2 max-w-[90%]'>
-      {/* AI avatar + content */}
       <div className='flex items-start gap-2.5'>
         <div className='w-7 h-7 rounded-full bg-purple-500/20 flex items-center justify-center flex-shrink-0 mt-0.5'>
           <ion-icon name='sparkles' style={{ fontSize: '13px', color: '#A729F5' }} />
@@ -114,7 +108,6 @@ function MessageBubble({ msg, onModeChange }: BubbleProps) {
         </div>
       </div>
 
-      {/* Auto mode suggestion — Yes / No / Dismiss */}
       {msg.autoModeSuggestion && !msg.isLoading && (
         <div className='ml-9 mt-2'>
           <div className='bg-purple-500/8 border border-purple-500/20 rounded-xl px-4 py-3 flex items-center justify-between gap-3'>
@@ -141,7 +134,6 @@ function MessageBubble({ msg, onModeChange }: BubbleProps) {
         </div>
       )}
 
-      {/* Mode suggestions (mismatch case) */}
       {msg.modeSuggestions && msg.modeSuggestions.length > 0 && (
         <div className='ml-9 flex flex-wrap gap-2 mt-1'>
           {msg.modeSuggestions.map((m) => (
@@ -156,44 +148,28 @@ function MessageBubble({ msg, onModeChange }: BubbleProps) {
           ))}
         </div>
       )}
-
-      {/* Quiz CTA */}
-      {/* {msg.showQuizCta && !msg.isLoading && (
-        <div className='ml-9 mt-1'>
-          <div className='bg-green-400/8 border border-green-400/20 rounded-xl px-4 py-3 flex items-center gap-3'>
-            <span className='text-xl'>🧠</span>
-            <div className='flex-1 min-w-0'>
-              <p className='text-app-text text-xs font-medium'>
-                Ready to test yourself on this?
-              </p>
-              <p className='text-app-text-secondary text-xs mt-0.5'>
-                Quiz yourself based on your documents.
-              </p>
-            </div>
-            <button
-              onClick={() => router.push('/?selected=quiz-time/upload')}
-              className='flex-shrink-0 bg-green-500 text-green-950 text-xs font-semibold rounded-lg px-3 py-2 hover:bg-green-400 transition-colors'
-            >
-              Quiz Me →
-            </button>
-          </div>
-        </div>
-      )} */}
     </div>
   );
 }
 
-// Main ChatPanel
 interface ChatPanelProps {
   messages: QAChatMessage[];
   isStreaming: boolean;
+  isAnalysing: boolean;
   onSend: (text: string) => void;
   onModeChange: (m: QAMode) => void;
 }
 
+// Error message strings set by useQAFlow's catch block
+const ERROR_STRINGS = [
+  'Something went wrong. Please try again.',
+  'There was a problem',
+];
+
 export default function ChatPanel({
   messages,
   isStreaming,
+  isAnalysing,
   onSend,
   onModeChange,
 }: ChatPanelProps) {
@@ -201,7 +177,38 @@ export default function ChatPanel({
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Auto-scroll to bottom on new messages
+  // Has the AI completed at least one message? (greeting finished)
+  const hasCompletedAssistantMessage = messages.some(
+    (msg) => msg.role === 'assistant' && !msg.isLoading,
+  );
+
+  // Is any message currently showing typing dots?
+  const isAnyMessageLoading = messages.some((msg) => msg.isLoading === true);
+
+  // Did the last assistant message end in a known error string?
+  const lastAssistantMsg = [...messages].reverse().find((m) => m.role === 'assistant' && !m.isLoading);
+  const hasError =
+    !isStreaming &&
+    !isAnyMessageLoading &&
+    !!lastAssistantMsg &&
+    ERROR_STRINGS.some((e) => lastAssistantMsg.content.startsWith(e));
+
+  // Disable when: streaming, analysing (mode switch), any bubble loading, or greeting not yet complete
+  const isInputDisabled = isStreaming || isAnalysing || isAnyMessageLoading || !hasCompletedAssistantMessage;
+
+  // Contextual placeholder
+  const placeholder =
+    !hasCompletedAssistantMessage || isAnyMessageLoading
+      ? 'Waiting for response…'
+      : isAnalysing
+        ? 'Analysing documents…'
+        : isStreaming
+          ? 'AI is responding…'
+          : hasError
+            ? 'Try asking again…'
+            : 'Ask anything about your documents…';
+
+  // Auto-scroll
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
@@ -216,7 +223,7 @@ export default function ChatPanel({
 
   const handleSend = () => {
     const text = draft.trim();
-    if (!text || isStreaming) return;
+    if (!text || isInputDisabled) return;
     onSend(text);
     setDraft('');
   };
@@ -228,6 +235,11 @@ export default function ChatPanel({
     }
   };
 
+  // Input border: red on error, purple focus normally
+  const inputBorderCls = hasError
+    ? 'border-red-500/35 focus-within:border-red-500/60'
+    : 'border-app-text-secondary/20 focus-within:border-purple-500/50';
+
   return (
     <div className='flex flex-col h-full'>
       {/* Message list */}
@@ -237,9 +249,7 @@ export default function ChatPanel({
             <div className='w-12 h-12 rounded-2xl bg-purple-500/10 flex items-center justify-center'>
               <ion-icon name='sparkles-outline' style={{ fontSize: '22px', color: '#A729F5' }} />
             </div>
-            <p className='text-sm text-center leading-relaxed'>
-              Starting conversation…
-            </p>
+            <p className='text-sm text-center leading-relaxed'>Starting conversation…</p>
           </div>
         )}
 
@@ -255,21 +265,21 @@ export default function ChatPanel({
 
       {/* Input area */}
       <div className='flex-shrink-0 p-3'>
-        <div className='flex items-end gap-2 bg-app-bg/60 border border-app-text-secondary/20 rounded-2xl px-3 py-2.5 focus-within:border-purple-500/50 transition-colors'>
+        <div className={`flex items-end gap-2 bg-app-bg/60 border rounded-2xl px-3 py-2.5 transition-colors ${inputBorderCls}`}>
           <textarea
             ref={textareaRef}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder='Ask anything about your documents…'
-            disabled={isStreaming}
+            placeholder={placeholder}
+            disabled={isInputDisabled}
             rows={1}
             className='flex-1 bg-transparent text-app-text text-sm placeholder:text-app-text-secondary/45 resize-none focus:outline-none leading-relaxed disabled:opacity-60'
             style={{ minHeight: '24px', maxHeight: '120px' }}
           />
           <button
             onClick={handleSend}
-            disabled={!draft.trim() || isStreaming}
+            disabled={!draft.trim() || isInputDisabled}
             className='w-9 h-9 flex-shrink-0 bg-purple-500 hover:bg-purple-600 disabled:opacity-35 disabled:cursor-not-allowed rounded-xl flex items-center justify-center transition-all active:scale-95'
             aria-label='Send'
           >

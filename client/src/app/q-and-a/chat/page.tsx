@@ -144,6 +144,7 @@ function QAChatInner() {
         <ChatPanel
           messages={messages}
           isStreaming={isStreaming}
+          isAnalysing={isAnalysing}
           onSend={sendMessage}
           onModeChange={changeMode}
         />

@@ -484,6 +484,16 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
         return;
       }
 
+      const SWITCH_GREETINGS: Record<QAMode, string> = {
+        default:
+          "I've switched back to Default Q&A. What would you like to know?",
+        resume:
+          "I've switched to Resume Mode and the analysis panel on the left is ready. Greet me briefly — mention the panel and offer to help with specific questions, cover letter drafting, or bullet point rewrites. Do not reproduce the full analysis.",
+        compare:
+          "I've switched to Compare Mode and the comparison table is on the left. Greet me briefly — mention the table and offer to answer specific follow-up questions.",
+        glossary:
+          "I've switched to Glossary Mode and the searchable glossary panel on the left has all extracted terms. Greet me briefly — mention the panel and offer to explain any specific term in more depth. Do not list or re-extract terms.",
+      };
       const existingIdx = findModeScreenIdx(leftScreens, newMode);
       if (existingIdx !== -1) setCurrentScreenIndex(existingIdx);
 
@@ -530,29 +540,10 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
           });
         }
 
-        const SWITCH_GREETINGS: Record<QAMode, string> = {
-          default:
-            "I've switched back to Default Q&A. What would you like to know?",
-          resume:
-            "I've switched to Resume Mode and the analysis panel on the left is ready. Greet me briefly — mention the panel and offer to help with specific questions, cover letter drafting, or bullet point rewrites. Do not reproduce the full analysis.",
-          compare:
-            "I've switched to Compare Mode and the comparison table is on the left. Greet me briefly — mention the table and offer to answer specific follow-up questions.",
-          glossary:
-            "I've switched to Glossary Mode and the searchable glossary panel on the left has all extracted terms. Greet me briefly — mention the panel and offer to explain any specific term in more depth. Do not list or re-extract terms.",
-        };
-        await greetForMode(
-          newMode,
-          selectedFiles,
-          historySnapshot,
-          SWITCH_GREETINGS[newMode],
-          colId,
-        );
       } catch (err) {
+        // Analysis failed — panel couldn't be built.
         if ((err as Error).name !== 'AbortError') {
-          // Analysis failed — still switch mode visually and greet,
-          // but show an error state in the panel rather than abandoning.
           if (existingIdx === -1) {
-            // Add a placeholder screen so the panel at least shows the right mode
             const placeholderScreen: LeftPanelScreen = {
               id: screenUid(),
               type: 'info',
@@ -566,9 +557,27 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
             role: 'assistant',
             content: `There was a problem loading the **${newMode} panel** — the AI service may be temporarily unavailable. You can still ask questions in chat, or try switching modes again.`,
           });
+          setIsAnalysing(false);
+          return;
         }
       } finally {
         setIsAnalysing(false);
+      }
+
+      // Greeting runs OUTSIDE the analysis try/catch — a greeting stream
+      // failure won't incorrectly show the "panel failed" error message.
+      try {
+        await greetForMode(
+          newMode,
+          selectedFiles,
+          historySnapshot,
+          SWITCH_GREETINGS[newMode],
+          colId,
+        );
+      } catch (err) {
+        if ((err as Error).name !== 'AbortError') {
+          console.error('changeMode greeting error:', err);
+        }
       }
     },
     [
@@ -719,6 +728,9 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
         }));
       history.push({ role: 'user', content });
 
+      // streamIntoMessage handles its own error state — it always resolves
+      // the loading bubble before re-throwing. Catch here only to silence
+      // AbortError; all other errors are already visible in the chat.
       try {
         await streamIntoMessage(
           assistantId,
@@ -729,17 +741,7 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
         );
       } catch (err) {
         if ((err as Error).name !== 'AbortError') {
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantId
-                ? {
-                    ...m,
-                    content: 'Something went wrong. Please try again.',
-                    isLoading: false,
-                  }
-                : m,
-            ),
-          );
+          console.error('sendMessage stream error:', err);
         }
       }
     },
