@@ -122,69 +122,33 @@ function deriveMetrics(steps: AnalysisStep[]): {
 function DonutRing({ pct }: { pct: number }) {
   const size = 120;
   const stroke = 11;
-  const r = (size - stroke) / 2;
-  const circ = 2 * Math.PI * r;
-  const dash = (pct / 100) * circ;
+
+  // Compute the angle at runtime
+  const angle = pct * 3.6;
 
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox={`0 0 ${size} ${size}`}
-      className='flex-shrink-0'
+    <div
+      className='relative shrink-0 h-[120px] w-[120px]'
+      style={{ '--angle': `${angle}deg` } as React.CSSProperties}
     >
-      {/* Track */}
-      <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={r}
-        fill='none'
-        stroke='rgba(255,255,255,0.08)'
-        strokeWidth={stroke}
-      />
-      {/* Progress */}
-      <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={r}
-        fill='none'
-        stroke='url(#donutGrad)'
-        strokeWidth={stroke}
-        strokeDasharray={`${dash} ${circ}`}
-        strokeLinecap='round'
-        transform={`rotate(-90 ${size / 2} ${size / 2})`}
-      />
-      <defs>
-        <linearGradient id='donutGrad' x1='0%' y1='0%' x2='100%' y2='0%'>
-          <stop offset='0%' stopColor='#A729F5' />
-          <stop offset='100%' stopColor='#7c3aed' />
-        </linearGradient>
-      </defs>
-      {/* Label */}
-      <text
-        x='50%'
-        y='46%'
-        dominantBaseline='middle'
-        textAnchor='middle'
-        fill='white'
-        fontSize='22'
-        fontWeight='700'
-        fontFamily='sans-serif'
-      >
-        {pct}%
-      </text>
-      <text
-        x='50%'
-        y='64%'
-        dominantBaseline='middle'
-        textAnchor='middle'
-        fill='rgba(255,255,255,0.45)'
-        fontSize='10'
-        fontFamily='sans-serif'
-      >
-        overall
-      </text>
-    </svg>
+      {/* 
+        Outer Ring: 
+        Pulls from the --angle CSS variable. 
+        Note: Spaces are replaced with underscores in arbitrary brackets.
+      */}
+      <div className='h-full w-full rounded-full bg-[conic-gradient(from_-90deg,#A729F5_0deg,#A729F5_var(--angle),rgba(150,150,150,0.08)_var(--angle),rgba(150,150,150,0.08)_360deg)]' />
+
+      {/* Inner Mask */}
+      <div className='absolute rounded-full bg-app-card top-[11px] left-[11px] h-[98px] w-[98px]' />
+
+      {/* Centered text content */}
+      <div className='absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center'>
+        <p className='m-0 font-sans text-[22px] font-bold text-app-text'>
+          {pct}%
+        </p>
+        <p className='m-0 font-sans text-[10px] text-app-text'>overall</p>
+      </div>
+    </div>
   );
 }
 
@@ -193,16 +157,16 @@ function DonutRing({ pct }: { pct: number }) {
 function MetricBar({ label, pct, colour }: Metric) {
   return (
     <div className='flex items-center gap-3'>
-      <span className='text-app-text-secondary text-xs w-32 flex-shrink-0'>
+      <span className='text-app-text-secondary text-xs w-32 flex-shrink-0 print:text-gray-700'>
         {label}
       </span>
-      <div className='flex-1 h-1.5 rounded-full bg-white/10 overflow-hidden'>
+      <div className='flex-1 h-1.5 rounded-full bg-white/15 overflow-hidden print:bg-gray-200'>
         <div
           className='h-full rounded-full transition-all duration-700'
           style={{ width: `${pct}%`, backgroundColor: colour }}
         />
       </div>
-      <span className='text-app-text text-xs font-semibold w-9 text-right flex-shrink-0'>
+      <span className='text-app-text text-xs font-semibold w-9 text-right flex-shrink-0 print:text-gray-800'>
         {pct}%
       </span>
     </div>
@@ -219,9 +183,11 @@ function Pill({
   variant: 'missing' | 'weak' | 'strong';
 }) {
   const cls = {
-    missing: 'border-red-400/40 text-red-300 bg-red-400/10',
-    weak: 'border-amber-400/40 text-amber-300 bg-amber-400/10',
-    strong: 'border-green-400/40 text-green-300 bg-green-400/10',
+    missing:
+      'border-red-400/40 text-red-300 bg-red-400/10 print:border-red-400 print:text-red-700 print:bg-red-50',
+    weak: 'border-amber-400/40 text-amber-300 bg-amber-400/10 print:border-amber-400 print:text-amber-700 print:bg-amber-50',
+    strong:
+      'border-green-400/40 text-green-300 bg-green-400/10 print:border-green-400 print:text-green-700 print:bg-green-50',
   }[variant];
   return (
     <span
