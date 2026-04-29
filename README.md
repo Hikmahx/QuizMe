@@ -150,7 +150,7 @@ To switch to FastAPI: update the two `fetch('/api/...')` calls in `hooks/useQAFl
   - **Theory** — open-ended; triggers one more step
 - **Answer mode** _(theory only)_:
   - **Written** — type your answer
-  - **Oral** — speak your answer; AI reads the question aloud first
+  - **Oral** — speak your answer; AI reads the question aloud first via backend TTS
 
 > All selections are persisted in `localStorage` under `quizme:quiz-flow` via `hooks/useQuizFlow.ts`. Refreshing the page restores all choices.
 
@@ -161,49 +161,52 @@ To switch to FastAPI: update the two `fetch('/api/...')` calls in `hooks/useQAFl
 - "Change settings" link returns to the first setup step
 - Oral-mode users see a tip panel explaining the Record / Stop flow
 
+#### AI question generation:
+
+When documents have been uploaded and processed, the Quiz Generator Agent generates questions directly from the document content at the chosen difficulty. If no documents are uploaded, a set of sample questions is used as fallback so the quiz never breaks.
+
 #### Answer modes:
 
-- **MCQ** — four `A / B / C / D` answer cards.
+- **MCQ** — four `A / B / C / D` answer cards
 - **Written** — written answer input
-- **Oral** — waveform panel (20 animated bars) + manual Record / Stop buttons. See oral flow below
+- **Oral** — waveform panel + manual Record / Stop buttons. See oral flow below.
 
-#### Oral answer flow:
+#### Oral answer flow (Voice RAG Agent):
 
-1. AI reads the question aloud — words underlined one-by-one on the left
+1. AI reads the question aloud via backend TTS (CartesiaAI or Edge TTS fallback)
 2. **"Tap Record when you're ready"** prompt — user controls when to start
-3. User taps **Start Recording** → mic opens, live green bars animate, pulsing red dot + `MM:SS` timer shown
-4. User taps **Stop Recording** (or 60 s safety timeout fires) → "Analysing your response…" spinner (1.5 s)
-5. Full transcript revealed — user reviews it
-6. **Retry button** in the transcript card — clears the recording and resets to step 2 so the user can re-record as many times as needed
-7. If no speech detected — a **Try Again** button is shown prominently
+3. User taps **Start Recording** → mic opens, live waveform animates, pulsing red dot + `MM:SS` timer shown
+4. User taps **Stop Recording** (or 60 s safety timeout fires) → audio sent to backend STT
+5. Backend transcribes the audio (AssemblyAI or faster-whisper fallback)
+6. Full transcript revealed — user reviews it
+7. **Retry button** in the transcript card — clears the recording and resets to step 2 so the user can re-record as many times as needed
+8. If no speech detected — a **Try Again** button is shown prominently
 
 ```
-SpeechSynthesis reads question → words underlined → phase: 'ready'
+Backend TTS reads question aloud → phase: 'ready'
         ↓ [user taps Start Recording]
-getUserMedia → live waveform · SpeechRecognition (continuous, finals only)
+getUserMedia → MediaRecorder captures audio (WebM/Opus)
         ↓ [user taps Stop Recording]
-phase: 'analysing' (1.5 s) → transcript shown → Next activates
+POST /api/voice/stt/ → backend transcribes → transcript shown → Next activates
         ↓ [optional: Retry]
 transcript cleared → phase: 'ready' → user records again
         ↓
 POST /api/quiz/evaluate/ → AI grades transcript
 ```
 
-> `SpeechRecognition` works best on Chrome / Edge. Firefox support is limited.
-
 #### Score page (`/quiz/score`):
 
-- **Left:** "Quiz completed / You scored…" with accuracy breakdown
-- **Right:** score card (feature icon + large score number + "out of N") · View Feedback · Play Again
+- **MCQ:** shows real numeric score (e.g. "7 out of 10") calculated client-side from `correctIndex` matching
+- **Theory:** shows an "AI grading in progress" card — the Answer Grader Agent runs on the feedback page
 
+#### Feedback page (`/quiz/feedback`):
 
-> File persistence: quiz flow options are stored in `localStorage` and cleared on Play Again.
-
-#### AI evaluates :
-
-- User answers
-- Score
-- Feedback & improvement tips
+- All answers are sent to `POST /api/quiz/evaluate/` in one request
+- The Answer Grader Agent evaluates each answer against the retrieved document context (RAG-grounded grading)
+- **MCQ:** ✓ / ✗ badge per card. `correct` determined client-side; `explanation` and `tip` from the AI.
+- **Theory:** percentage badge per card (e.g. `72%`), colour-coded: green ≥80%, amber ≥50%, red <50%. An answer is considered correct at ≥50%.
+- Overall score shown in the left panel: `X / N correct` for MCQ, `Overall: N%` for theory
+- Cards reveal all at once after grading completes
 
 #### Advanced _(for later)_:
 
@@ -241,23 +244,27 @@ The **"Quiz yourself"** button is a persistent feature across all pages — not 
 - Next.js (App Router)
 - Tailwind CSS
 - TypeScript
-- Web Speech API (TTS + STT)
--  `pdf-parse` (PDF), `mammoth` (DOCX - server-side)
+- `pdf-parse` (PDF), `mammoth` (DOCX — server-side, Q&A temp routes only)
 
 ## Backend
 
-- FastAPI
+- FastAPI + Uvicorn
+- SQLAlchemy + psycopg2 (PostgreSQL ORM)
+- Supabase (hosted PostgreSQL + pgvector)
 
 ## AI / ML
 
-- Groq (`llama-3.3-70b-versatile`) via `groq-sdk`   
-- Hugging Face Transformers
-- pdfplumber (PDF text extraction)
-- nltk (text processing)
-- Pydantic
-- CrewAI (for AI Agents)
-- Langchain (for RAG)
-- 
+- Groq (`llama-3.3-70b-versatile`) — summaries, quiz generation, answer grading
+- sentence-transformers (`all-MiniLM-L6-v2`) — local document embeddings
+- pgvector — vector similarity search in PostgreSQL
+- pdfplumber — PDF text extraction
+- python-docx — DOCX text extraction
+- langchain-text-splitters — document chunking
+- CrewAI — multi-agent orchestration (Quiz Generator Agent + Answer Grader Agent)
+- AssemblyAI — cloud speech-to-text (primary STT, free trial)
+- faster-whisper — local speech-to-text (STT fallback, no API key needed)
+- CartesiaAI — cloud text-to-speech (primary TTS, free trial)
+- Edge TTS — local text-to-speech (TTS fallback, no API key needed)
 
 ---
 
@@ -265,43 +272,58 @@ The **"Quiz yourself"** button is a persistent feature across all pages — not 
 
 ## Retrieval-Augmented Generation (RAG)
 
-- Documents are split into chunks
-- Stored as embeddings in a vector database
-- Relevant chunks are retrieved during queries
-- LLM generates answers grounded in document context
+Documents are split into overlapping chunks using `langchain-text-splitters`, then embedded locally using `sentence-transformers`. Embeddings are stored in Supabase via pgvector. On every query, the most semantically similar chunks are retrieved using cosine distance and passed to the LLM as grounded context.
 
----
-
-## Voice Interaction (Web Speech API)
-
-- **Text-to-Speech**: Quiz questions and AI-generated feedback can be read aloud using the browser's `SpeechSynthesis` API — no third-party service or backend call required
-- **Speech-to-Text**: Users can answer quiz questions by voice using the browser's `SpeechRecognition` API; the transcript is sent to FastAPI for AI evaluation just like a typed answer
-- Voice interaction is **100% frontend** — FastAPI only receives and processes the final text
+Collections are cached by a hash of the uploaded file names and sizes — re-uploading the same files skips re-processing entirely. Collections that have not been accessed for 3 days are cleaned up automatically.
 
 ```
-Browser mic → SpeechRecognition API → transcript text
-                                              ↓
-                                    POST /api/quiz/evaluate/  ← FastAPI grades it
-                                              ↓
-                                    Result text → SpeechSynthesis reads feedback aloud
+Upload → extract text → chunk → embed (local) → store in Supabase
+Query  → embed query → cosine search → retrieve top-K chunks → LLM
 ```
 
-> **Note:** The `SpeechRecognition` API works best on Chromium-based browsers (Chrome, Edge). Firefox support is limited.
+## Voice RAG Pipeline
 
----
+The oral quiz mode runs a full backend voice pipeline — no browser speech APIs are used for STT or TTS.
 
-## AI Agents (Planned)
+**Text-to-Speech (TTS):**
+- Primary: CartesiaAI (cloud, high quality) — used when `CARTESIA_API_KEY` is set
+- Fallback: Edge TTS (local, free) — used automatically if CartesiaAI is unavailable or its trial expires
 
-- Dynamically decide workflow:
-  - Summarize
-  - Generate quiz
-  - Extract insights
+**Speech-to-Text (STT):**
+- Primary: AssemblyAI (cloud, higher accuracy) — used when `ASSEMBLYAI_API_KEY` is set
+- Fallback: faster-whisper (local, runs on CPU) — used automatically if AssemblyAI is unavailable or its trial expires
 
-- Adapts based on user intent
+Both services fall back silently — the user never sees an error if the primary service fails.
 
----
+```
+POST /api/voice/speak/      ← text → CartesiaAI or Edge TTS → WAV bytes → browser plays
+POST /api/voice/transcribe/ ← audio blob → AssemblyAI or faster-whisper → transcript text
+```
 
-## Model Context Protocol (MCP) (Advanced)
+## AI Agents (CrewAI)
+
+Phase 3 introduced two CrewAI agents that handle quiz generation and answer grading. Each agent has one focused role, a system prompt defining its persona, and access to retrieved document context as its tool.
+
+**Quiz Generator Agent**
+- Retrieves a broad cross-section of document chunks (top-15 by default)
+- Instructs Groq to write MCQ or theory questions at the chosen difficulty
+- Returns structured JSON matching the frontend's `QuizQuestion` type directly
+- `temperature=0.7` — variety in questions
+
+**Answer Grader Agent**
+- Retrieves the most relevant document chunk for each specific question
+- Grades MCQ answers against the correct option text
+- Grades theory answers as a percentage (0–100), rewarding paraphrasing
+- Returns `{ correct, score_pct, explanation, tip }` per question
+- `temperature=0.1` — consistent scores; same answer always gets the same grade
+- If retrieved context is from a different document (stale collection_id), it is discarded and the agent grades using general knowledge instead
+
+```
+generate:  retrieve broad chunks → Quiz Generator Agent → JSON questions
+evaluate:  retrieve targeted chunk per question → Answer Grader Agent → feedback + score_pct
+```
+
+## Model Context Protocol (MCP) _(Planned)_
 
 - Structured tool-based interaction layer
 - Enables LLM to:
@@ -316,7 +338,7 @@ Browser mic → SpeechRecognition API → transcript text
 ```
 Next.js (Frontend UI)
         ↓
-Next.js API routes (temporary Groq integration)
+Next.js API routes (temporary Groq integration for Q&A)
       ↓  ← swap fetch URLs in hooks/useQAFlow.ts when ready
 FastAPI REST API
       ↓
@@ -337,14 +359,73 @@ LLM (Groq / HuggingFace)
 
 # Setup
 
+## Frontend
+
 ```bash
 git clone https://github.com/hikmahx/quizme.git
 cd quizme/client
 npm install
 # create client/.env.local and add:
-# GROQ_API_KEY=your_key_here
+# NEXT_PUBLIC_API_URL=http://localhost:8000
+# GROQ_API_KEY=your_key_here   ← only needed for the temporary Q&A API routes
 npm run dev
 ```
+
+## Backend
+
+```bash
+cd quizme/fastapi-backend
+python -m venv venv
+source venv/bin/activate        # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+Create `fastapi-backend/.env`:
+
+```
+DATABASE_URL=postgresql://postgres.[ref]:[password]@aws-0-[region].pooler.supabase.com:5432/postgres
+GROQ_API_KEY=your_groq_key
+
+# Optional — leave empty to use local fallbacks
+ASSEMBLYAI_API_KEY=
+CARTESIA_API_KEY=
+```
+
+Run the Supabase SQL setup (once):
+
+```sql
+CREATE EXTENSION IF NOT EXISTS vector;
+
+CREATE TABLE IF NOT EXISTS document_collections (
+    id VARCHAR(16) PRIMARY KEY,
+    file_fingerprint TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    last_accessed TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS document_chunks (
+    id SERIAL PRIMARY KEY,
+    collection_id VARCHAR(16) NOT NULL
+        REFERENCES document_collections(id) ON DELETE CASCADE,
+    doc_name TEXT NOT NULL,
+    chunk_index INTEGER NOT NULL,
+    content TEXT NOT NULL,
+    embedding vector(384),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS document_chunks_collection_idx ON document_chunks(collection_id);
+CREATE INDEX IF NOT EXISTS document_chunks_embedding_idx
+    ON document_chunks USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+```
+
+Start the server:
+
+```bash
+uvicorn app.main:app --reload --port 8000
+```
+
+API docs available at `http://localhost:8000/docs`.
 
 ---
 
