@@ -6,7 +6,11 @@ from typing import List
 class Settings(BaseSettings):
     APP_NAME: str = "QuizMe API"
     DEBUG: bool = False
-    ALLOWED_ORIGINS: List[str] = ["http://localhost:3000"]
+    ALLOWED_ORIGINS_STR: str = "http://localhost:3000"
+
+    @property
+    def ALLOWED_ORIGINS(self) -> List[str]:
+        return [o.strip() for o in self.ALLOWED_ORIGINS_STR.split(",") if o.strip()]
     DATABASE_URL: str
 
     # LLM providers
