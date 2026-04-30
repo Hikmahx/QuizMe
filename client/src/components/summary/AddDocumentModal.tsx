@@ -6,8 +6,8 @@ import {
   DragEvent,
   ChangeEvent,
 } from 'react';
-import { ACCEPTED_TYPES, MAX_FILES } from '@/lib/features';
-import { fileToStoredMeta, pasteTextToStoredMeta } from '@/lib/storage';
+import { ACCEPTED_TYPES } from '@/lib/features';
+import { fileToStoredMeta, pasteTextToStoredMeta, MAX_FILES } from '@/lib/storage';
 import { StoredFileMeta } from '@/types';
 import PasteTextInput from './PasteTextInput';
 

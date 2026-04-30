@@ -41,7 +41,7 @@ function QAChatInner() {
 
   // hydrated = true once localStorage files have been loaded
   const { files, hydrated } = useSummaryFlow();
-  const [mobileTab, setMobileTab] = useState<MobileTab>('chat');
+  const [mobileTab, setMobileTab] = useState<MobileTab>('context');
 
   const {
     mode,
@@ -79,7 +79,9 @@ function QAChatInner() {
         </span>
         <span className='text-xs text-app-text-secondary border border-app-text-secondary/15 rounded-xl px-3 py-1.5 bg-app-card flex items-center gap-1.5'>
           <ion-icon name='documents-outline' style={{ fontSize: '13px' }} />
-          {selectedFiles.length}/{files.length} file{files.length !== 1 ? 's' : ''}
+          {/* {selectedFiles.length}/ */}
+          {files.length} file
+          {files.length !== 1 ? 's' : ''}
         </span>
       </div>
 
@@ -159,7 +161,7 @@ function QAChatInner() {
 
       {/* Mobile: tab switcher */}
       <div className='lg:hidden px-6 pb-3 flex gap-2'>
-        {(['chat', 'context'] as MobileTab[]).map((tab) => (
+        {(['context', 'chat'] as MobileTab[]).map((tab) => (
           <button
             key={tab}
             onClick={() => setMobileTab(tab)}
