@@ -103,13 +103,13 @@ function QAChatInner() {
     <div className='dark-bg rounded-2xl flex flex-col h-full overflow-hidden'>
       {/* Chat header */}
       <div className='flex items-center justify-between px-4 py-3 border-b border-app-text-secondary/10 flex-shrink-0'>
-        <div className='flex items-center gap-2'>
-          <div className='w-6 h-6 rounded-full bg-purple-500/20 flex items-center justify-center'>
+        <div className='items-center gap-2 hidden lg:flex'>
+          {/* <div className='w-6 h-6 rounded-full bg-purple-500/20 flex items-center justify-center'>
             <ion-icon
               name='sparkles'
               style={{ fontSize: '12px', color: '#A729F5' }}
             />
-          </div>
+          </div> */}
           <span className='text-app-text text-sm font-medium'>QuizMe AI</span>
           {(isStreaming || isAnalysing) && (
             <span className='flex gap-0.5 items-center'>
@@ -205,7 +205,7 @@ function QAChatInner() {
         </div>
 
         {/* Mobile layout */}
-        <div className='lg:hidden h-full'>
+        <div className='lg:hidden h-[80vh]'>
           {mobileTab === 'chat' ? (
             RightContent
           ) : (

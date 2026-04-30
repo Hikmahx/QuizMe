@@ -242,10 +242,10 @@ export default function AnalysisStepsPanel({ steps }: AnalysisStepsPanelProps) {
         ref={printRef}
         className='flex-1 overflow-y-auto flex flex-col gap-5 pr-0.5'
       >
-        {/* ── Score section ── */}
-        <div className='bg-app-card rounded-2xl p-4 flex items-center gap-5'>
+        {/* Score section */}
+        <div className='bg-app-card rounded-2xl p-4 flex flex-col lg:flex-row items-center gap-5'>
           <DonutRing pct={overall} />
-          <div className='flex flex-col gap-2.5 flex-1 min-w-0'>
+          <div className='flex flex-col gap-2.5 flex-1 min-w-0 w-full lg:w-fit'>
             {metrics.map((m) => (
               <MetricBar key={m.label} {...m} />
             ))}

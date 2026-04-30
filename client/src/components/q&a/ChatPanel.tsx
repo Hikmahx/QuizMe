@@ -241,7 +241,7 @@ export default function ChatPanel({
     : 'border-app-text-secondary/20 focus-within:border-purple-500/50';
 
   return (
-    <div className='flex flex-col h-full min-h-[72vh]'>
+    <div className='flex flex-col h-full min-h-[72vh] lg:min-h-[65vh]'>
       {/* Message list */}
       <div className='flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-5'>
         {messages.length === 0 && (
