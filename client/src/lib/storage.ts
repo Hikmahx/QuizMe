@@ -277,3 +277,18 @@ export function checkStorageQuota(files: StoredFileMeta[]): boolean {
 
   return isApproachingLimit;
 }
+
+export function getStoredCollectionId(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const s = JSON.parse(localStorage.getItem('quizme:summary-flow') ?? '{}');
+    const id = s.collectionId ?? s.collection_id ?? '';
+    return typeof id === 'string' && id ? id : null;
+  } catch {
+    return null;
+  }
+}
+
+export function toFilePayloads(files: StoredFileMeta[]) {
+  return files.map(({ name, type, dataUrl }) => ({ name, type, dataUrl }));
+}

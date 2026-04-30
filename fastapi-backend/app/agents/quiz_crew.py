@@ -7,22 +7,15 @@ Grading uses a single direct LLM call for ALL questions at once:
 """
 
 import json
-import re
 import logging
 from crewai import Crew
 from .quiz_tasks import generate_mcq_task, generate_theory_task
 from app.llm.router import get_llm_response
 from app.core.config import get_settings
+from app.utils.text import extract_json
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
-
-
-def _strip_fences(text: str) -> str:
-    """Remove markdown code fences the model may add despite instructions."""
-    text = re.sub(r"```(?:json)?\s*", "", text)
-    text = re.sub(r"```\s*", "", text)
-    return text.strip()
 
 
 # Generation (CrewAI — 1 call per quiz)
@@ -54,7 +47,7 @@ def run_quiz_generation(
     raw= result.raw if hasattr(result, "raw") else str(result)
 
     try:
-        parsed = json.loads(_strip_fences(raw))
+        parsed = json.loads(extract_json(raw))
         if not isinstance(parsed, list):
             raise ValueError("Expected a JSON array at the top level.")
         return parsed
@@ -118,7 +111,7 @@ Each object: {{ "correct": bool, "score_pct": int, "explanation": "str", "tip": 
             temperature=0.1,
             max_tokens=max_tok,
         )
-        parsed = json.loads(_strip_fences(raw))
+        parsed = json.loads(extract_json(raw))
 
         if not isinstance(parsed, list):
             raise ValueError("Expected a JSON array")

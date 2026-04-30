@@ -85,3 +85,61 @@ def retrieve_all_chunks(collection_id: str) -> list[dict]:
 
     finally:
         db.close()
+
+
+def build_context(collection_id: str, query: str, top_k: int | None = None) -> str:
+    """
+    Retrieve the most relevant chunks matching a query and format them as a context string.
+
+    Chunks are formatted as:
+        [From: doc_name]
+        chunk_content
+
+    Multiple chunks are joined with a separator:
+        \n\n---\n\n
+
+    Args:
+        collection_id: Which set of files to search.
+        query:         The search query.
+        top_k:         How many chunks to retrieve. Defaults to config value.
+
+    Returns:
+        A formatted context string, or "" if no chunks found.
+    """
+    if top_k is None:
+        top_k = settings.RETRIEVAL_TOP_K
+    chunks = retrieve_chunks(collection_id, query, top_k=top_k)
+    if not chunks:
+        return ""
+    return "\n\n---\n\n".join(
+        f"[From: {c['doc_name']}]\n{c['content']}" for c in chunks
+    )
+
+
+def build_all_context(collection_id: str) -> str:
+    """
+    Retrieve ALL chunks for a collection and format them as a context string.
+
+    Used for operations that need complete document context, such as:
+    - Full-document analysis (resume review, compare, glossary)
+    - Comprehensive summaries
+
+    Chunks are formatted as:
+        [From: doc_name]
+        chunk_content
+
+    Multiple chunks are joined with a separator:
+        \n\n---\n\n
+
+    Args:
+        collection_id: Which set of files to retrieve all chunks from.
+
+    Returns:
+        A formatted context string with all chunks, or "" if no chunks found.
+    """
+    chunks = retrieve_all_chunks(collection_id)
+    if not chunks:
+        return ""
+    return "\n\n---\n\n".join(
+        f"[From: {c['doc_name']}]\n{c['content']}" for c in chunks
+    )

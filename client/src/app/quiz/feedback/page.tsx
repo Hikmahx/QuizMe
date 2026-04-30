@@ -7,21 +7,10 @@ import Breadcrumb from '@/components/global/Breadcrumb';
 import FeedbackCard from '@/components/quiz/FeedbackCard';
 import { FEATURE_MAP } from '@/lib/features';
 import { QuizAnswerState, QuizQuestion, AIFeedback } from '@/types/quiz';
-import { buildAnswerPayloads, evaluateQuizApi } from '@/lib/quiz-api';
+import { evaluateQuizApi } from '@/lib/quiz-api';
+import { getStoredCollectionId } from '@/lib/storage';
 
 const feature = FEATURE_MAP['quiz-time'];
-
-/** Read the collection_id that play/page.tsx saved after uploading. */
-function getStoredCollectionId(): string | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    const s = JSON.parse(localStorage.getItem('quizme:summary-flow') ?? '{}');
-    const id = s.collectionId ?? s.collection_id ?? '';
-    return typeof id === 'string' && id ? id : null;
-  } catch {
-    return null;
-  }
-}
 
 /**
  * Read questionType from sessionStorage (written there by play/page.tsx).
@@ -67,12 +56,6 @@ export default function QuizFeedbackPage() {
 
     const collectionId = getStoredCollectionId();
 
-    // Build payloads from the parsed data directly (never from state, which is async)
-    const payloads = buildAnswerPayloads(
-      parsedQuestions,
-      parsedAnswers,
-      qType ?? 'theory',
-    );
 
     // Rebuild properly using questions + answers
     const correctPayloads = parsedQuestions.map((q, i) => {
@@ -111,7 +94,6 @@ export default function QuizFeedbackPage() {
       setEvaluating(false);
     });
 
-    void payloads; // suppress unused var warning
   }, [router]);
 
   if (!ready) return null;

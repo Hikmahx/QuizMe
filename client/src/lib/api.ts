@@ -1,6 +1,7 @@
 import { StoredFileMeta } from '@/types';
+import { toFilePayloads } from '@/lib/storage';
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
+export const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
 
 export interface SummaryApiRequest {
   files: { name: string; type: string; dataUrl: string }[];
@@ -21,11 +22,7 @@ export async function generateSummaryApi(
   style: 'default' | 'combined' | 'doc-by-doc',
 ): Promise<SummaryApiResponse> {
   const body: SummaryApiRequest = {
-    files: files.map((f) => ({
-      name: f.name,
-      type: f.type,
-      dataUrl: f.dataUrl,
-    })),
+    files: toFilePayloads(files),
     length,
     style,
   };
@@ -83,7 +80,7 @@ export async function transcribeAudio(audioBlob: Blob): Promise<string> {
 }
 
 //  Quiz upload & generate
-export interface UploadForQuizResponse {
+export interface UploadResponse {
   collection_id: string;
   files_indexed: number;
   total_chunks: number;
@@ -94,18 +91,14 @@ export interface UploadForQuizResponse {
  * POST /api/upload/
  * Indexes uploaded documents in the vector store and returns a collection_id.
  */
-export async function uploadFilesForQuiz(
+export async function uploadFiles(
   files: StoredFileMeta[],
-): Promise<UploadForQuizResponse> {
+): Promise<UploadResponse> {
   const res = await fetch(`${BASE_URL}/api/upload/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      files: files.map((f) => ({
-        name: f.name,
-        type: f.type,
-        dataUrl: f.dataUrl,
-      })),
+    files: toFilePayloads(files),
     }),
   });
   if (!res.ok) {

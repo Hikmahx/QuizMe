@@ -34,6 +34,4 @@ export const FEATURE_MAP = Object.fromEntries(
   FEATURES.map((f) => [f.key, f])
 ) as Record<string, FeatureMeta>
 
-export const MAX_FILES = 10
-export const MAX_FILE_SIZE_MB = 20
 export const ACCEPTED_TYPES = '.pdf,.docx,.txt'

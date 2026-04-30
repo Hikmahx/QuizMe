@@ -2,11 +2,9 @@
 
 import { useState, useEffect, useCallback, useSyncExternalStore } from 'react'
 import { StoredFileMeta, SummaryLength, SummaryStyle } from '@/types'
-import { getSummaryFlow, setSummaryFlow, clearSummaryFlow } from '@/lib/storage'
+import { getSummaryFlow, setSummaryFlow, clearSummaryFlow, MAX_FILE_SIZE, MAX_FILES } from '@/lib/storage'
 import { generateSummaryApi, SummaryApiResponse } from '@/lib/api'
 
-const MAX_FILE_SIZE = 20 * 1024 * 1024
-const MAX_FILES = 10
 
 export interface ValidationError {
   type: 'size' | 'type' | 'count'
@@ -194,14 +192,8 @@ export function useSummaryFlow() {
 
       // Save collection_id to localStorage so the quiz Voice RAG mode
       // knows which documents to search when answering spoken questions.
-      if (result.collection_id && typeof window !== 'undefined') {
-        try {
-          const current = JSON.parse(localStorage.getItem('quizme:summary-flow') ?? '{}')
-          localStorage.setItem('quizme:summary-flow', JSON.stringify({
-            ...current,
-            collectionId: result.collection_id,
-          }))
-        } catch { /* quota — non-fatal */ }
+      if (result.collection_id) {
+          setSummaryFlow({ collectionId: result.collection_id })
       }
 
       notifyListeners()

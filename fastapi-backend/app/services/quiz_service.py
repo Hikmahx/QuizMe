@@ -13,7 +13,7 @@ Key design decisions:
 """
 
 import logging
-from app.rag.retriever import retrieve_chunks
+from app.rag.retriever import build_context, retrieve_chunks
 from app.core.config import get_settings
 from app.agents.quiz_crew import run_quiz_generation, run_batch_grade
 from app.schemas.quiz import GeneratedQuestion, MCQOption, QuizFeedback
@@ -43,21 +43,17 @@ def generate_quiz(
     Retrieve document content via RAG and generate quiz questions.
     Uses a broad query to get a cross-section of the whole document.
     """
-    chunks = retrieve_chunks(
-        collection_id=collection_id,
+    content = build_context(
+        collection_id,
         query="main topics key concepts important ideas examples definitions",
         top_k=settings.RETRIEVAL_TOP_K_BROAD,
     )
 
-    if not chunks:
+    if not content:
         raise ValueError(
             "No content found for this collection. "
             "Please upload your documents first."
         )
-
-    content = "\n\n---\n\n".join(
-        f"[From: {c['doc_name']}]\n{c['content']}" for c in chunks
-    )
 
     raw_questions = run_quiz_generation(content, difficulty, count, question_type)
 

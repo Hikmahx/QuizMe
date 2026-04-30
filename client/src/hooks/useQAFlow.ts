@@ -31,8 +31,9 @@ import {
   CompareRow,
   GlossaryEntry,
 } from '@/types/qa';
+import { getStoredCollectionId, setSummaryFlow, toFilePayloads } from '@/lib/storage';
+import { BASE_URL, uploadFiles } from '@/lib/api';
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
 
 let _counter = 0;
 const uid = () => `msg-${++_counter}-${Date.now()}`;
@@ -81,38 +82,6 @@ function buildScreenPatch(
   return {};
 }
 
-// localStorage helpers
-
-function getStoredCollectionId(): string {
-  if (typeof window === 'undefined') return '';
-  try {
-    const s = JSON.parse(localStorage.getItem('quizme:summary-flow') ?? '{}');
-    const id = s.collectionId ?? s.collection_id ?? '';
-    return typeof id === 'string' ? id : '';
-  } catch {
-    return '';
-  }
-}
-
-function saveCollectionId(id: string) {
-  if (typeof window === 'undefined') return;
-  try {
-    const current = JSON.parse(
-      localStorage.getItem('quizme:summary-flow') ?? '{}',
-    );
-    localStorage.setItem(
-      'quizme:summary-flow',
-      JSON.stringify({
-        ...current,
-        collectionId: id,
-        collection_id: id,
-      }),
-    );
-  } catch {
-    /* quota — non-fatal */
-  }
-}
-
 function getStoredSelectedFileNames(): string[] | null {
   if (typeof window === 'undefined') return null;
   try {
@@ -145,21 +114,9 @@ async function ensureCollectionId(files: StoredFileMeta[]): Promise<string> {
   const existing = getStoredCollectionId();
   if (existing) return existing;
 
-  const res = await fetch(`${BASE_URL}/api/upload/`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      files: files.map((f) => ({
-        name: f.name,
-        type: f.type,
-        dataUrl: f.dataUrl,
-      })),
-    }),
-  });
-  if (!res.ok) throw new Error(`Upload failed (${res.status})`);
-  const data = await res.json();
-  const id = data.collection_id as string;
-  saveCollectionId(id);
+  const data = await uploadFiles(files);
+  const id = data.collection_id;
+  setSummaryFlow({ collectionId: id });
   return id;
 }
 
@@ -539,7 +496,6 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
             return prev + 1;
           });
         }
-
       } catch (err) {
         // Analysis failed — panel couldn't be built.
         if ((err as Error).name !== 'AbortError') {
@@ -591,7 +547,7 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
     ],
   );
 
-  // ── File change ──────────────────────────────────────────────────────────────
+  // File change
 
   const confirmFileChange = useCallback(
     async (newFiles: StoredFileMeta[]) => {
@@ -608,24 +564,11 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
       // Re-index the new file set to get a collection_id
       let colId = collectionIdRef.current;
       try {
-        const res = await fetch(`${BASE_URL}/api/upload/`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            files: newFiles.map((f) => ({
-              name: f.name,
-              type: f.type,
-              dataUrl: f.dataUrl,
-            })),
-          }),
-        });
-        if (res.ok) {
-          const data = await res.json();
-          colId = data.collection_id;
-          collectionIdRef.current = colId;
-          setCollectionId(colId);
-          saveCollectionId(colId);
-        }
+        const data = await uploadFiles(newFiles);
+        colId = data.collection_id;
+        collectionIdRef.current = colId;
+        setCollectionId(colId);
+        setSummaryFlow({ collectionId: colId });
       } catch {
         /* use existing colId */
       }

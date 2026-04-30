@@ -1,13 +1,14 @@
 # 📁 Project Structure
 
-> Frontend only. Backend will live in `/backend`.
+> **Frontend**: `client/` (Next.js)  
+> **Backend**: `fastapi-backend/` (FastAPI + RAG + CrewAI)
 
 ```
 client/src/
 ├── app/
 │   ├── page.tsx                              # Homepage + upload step (via ?selected=)
 │   │
-│   ├── api/                                  # Temporary Next.js API routes (replaced by Django)
+│   ├── api/                                  # fallback Next.js API routes (FastAPI / api/qa/ is primary)
 │   │   ├── chat/route.ts                     # Streaming Groq chat — mode-aware system prompt
 │   │   └── analyze/route.ts                  # Structured analysis — agent steps / compare / glossary
 │   │
@@ -52,15 +53,15 @@ client/src/
 │   │   ├── SummaryCard.tsx                   # Summary text display
 │   │   └── UploadStep.tsx                    # Step 1 orchestrator — FileDropzone + PasteTextInput + AddDocumentModal
 │   │
-│   ├── qa/
+│   ├── q&a/
 │   │   ├── ChatPanel.tsx                     # Right-side chat — bubbles, mode chips, file chips, Quiz CTA
 │   │   ├── ExportButton.tsx                  # Print-to-PDF for any panel
 │   │   ├── FileChangeModal.tsx               # "Are you sure?" modal before file selection change applies
 │   │   ├── FileSelectorPopover.tsx           # Dropdown — free toggle + Update button → triggers modal
 │   │   ├── LeftPanel.tsx                     # Chevron navigator wrapping all panel screens + loading overlay
-│   │   ├── ModeCard.tsx                      # (Legacy — superseded by global OptionCard on mode picker page)
+
 │   │   └── panels/
-│   │       ├── AgentStepsPanel.tsx           # Resume mode — progress bar + step timeline
+   │       ├── AnalysisStepsPanel.tsx         # Resume mode — progress bar + step timeline
 │   │       ├── CompareTablePanel.tsx         # Compare mode — sticky headers, alternating rows
 │   │       ├── DefaultResultPanel.tsx        # Default mode — file list + tips
 │   │       ├── GlossaryPanel.tsx             # Glossary — search + horizontal alphabet bar + collapsible entries
@@ -80,12 +81,16 @@ client/src/
 │   └── useSummaryFlow.ts                     # Upload + summary flow — persisted to localStorage
 │
 ├── lib/
+   │   ├── api.ts                               # Core API functions — generateSummaryApi, speakText, transcribeAudio, uploadFilesForQuiz
 │   ├── features.ts                           # Feature metadata (label, icon, routes, colours)
 │   ├── file-extract.ts                       # Server-side text extraction: PDF (pdf-parse), DOCX (mammoth), text
-│   ├── quiz-mock.ts                          # Placeholder questions + feedback (until Django API ready)
+│   ├── quiz-api.ts                           # Quiz API functions — generateQuiz, evaluateAnswers
+│   ├── quiz-mock.ts                          # Placeholder questions + feedback (fallback)
 │   ├── quiz-options.ts                       # Difficulty / count / type / mode config
 │   ├── storage.ts                            # localStorage helpers + file→base64 + pasteTextToStoredMeta
 │   └── summary-options.ts                    # Summary length + style option definitions
+└── utils/
+│  └── helpers.ts                        # Utility functions (copy, formatting, validation)
 │
 └── types/
     ├── index.ts                              # Shared types: FeatureMeta, StoredFileMeta (+ source, wordCount)
@@ -98,60 +103,64 @@ client/src/
 
 ## 🔌 API Endpoints
 
-### Temporary Next.js routes (active now)
+### FastAPI endpoints (production)
 
-| Route | Method | Description |
-|-------|--------|-------------|
-| `/api/chat` | POST | Streaming Groq response — body: `{ mode, files, messages }` |
-| `/api/analyze` | POST | Structured JSON analysis — body: `{ mode, files }` |
+| Endpoint                 | Method | Description                                                                               |
+| ------------------------ | ------ | ----------------------------------------------------------------------------------------- |
+| `/api/upload/`           | POST   | Index uploaded documents in vector store; return `collection_id`                          |
+| `/api/summary/`          | POST   | Generate document summary (length: short/medium/long; style: default/combined/doc-by-doc) |
+| `/api/voice/speak/`      | POST   | Text-to-speech (TTS) — returns audio blob                                                 |
+| `/api/voice/transcribe/` | POST   | Speech-to-text (STT) — accepts audio file                                                 |
+| `/api/quiz/generate/`    | POST   | Generate quiz questions (MCQ or Theory; streaming)                                        |
+| `/api/quiz/evaluate/`    | POST   | Grade quiz answers — batch all questions in one call                                      |
+| `/api/qa/chat/`          | POST   | Streaming RAG chat — mode-aware system prompt                                             |
+| `/api/qa/analyze/`       | POST   | Structured analysis — agent steps / compare / glossary                                    |
+| `/api/qa/detect/`        | POST   | Auto-detect mode suggestion (resume, compare, or null)                                    |
 
-### Django endpoints (planned)
+### Fallback Next.js routes (production chat calls FastAPI)
 
-| Endpoint | Description |
-|----------|-------------|
-| `/api/summary/` | Generate document summary |
-| `/api/summary/combined/` | Combined multi-doc summary |
-| `/api/questions/` | RAG-powered Q&A (replaces `/api/chat` + `/api/analyze`) |
-| `/api/quiz/` | Generate quiz questions |
-| `/api/quiz/evaluate/` | Grade answer + return feedback |
-
-**To migrate to Django:** change the two `fetch('/api/...')` calls in `hooks/useQAFlow.ts` to your Django URLs, then delete `src/app/api/`.
+| Route          | Method | Description                                                                     |
+| -------------- | ------ | ------------------------------------------------------------------------------- |
+| `/api/chat`    | POST   | Streaming Groq response — fallback only, FastAPI `/api/qa/chat/` is primary     |
+| `/api/analyze` | POST   | Structured JSON analysis — fallback only, FastAPI `/api/qa/analyze/` is primary |
 
 ---
 
 ## 🗺️ URL Map
 
-| URL | Description |
-|-----|-------------|
-| `/` | Homepage — feature picker + upload step |
-| `/?selected=view-summary/upload` | Upload for View Summary |
-| `/?selected=ask-questions/upload` | Upload for Ask Questions |
-| `/?selected=quiz-time/upload` | Upload for Quiz Time |
-| `/view-summary/options?step=length` | Summary length (Step 2) |
-| `/view-summary/options?step=style` | Summary style (Step 2, multi-doc) |
-| `/view-summary` | Summary result (Step 3) |
-| `/q-and-a` | Q&A mode selection (Step 2) |
-| `/q-and-a/chat?mode=[mode]` | Q&A chat (Step 3) — mode: default / resume / compare / glossary |
-| `/quiz/options?step=difficulty` | Quiz setup — difficulty |
-| `/quiz/options?step=count` | Quiz setup — question count |
-| `/quiz/options?step=type` | Quiz setup — question type |
-| `/quiz/options?step=input` | Quiz setup — answer mode (theory only) |
-| `/quiz/ready` | "Are you ready?" confirmation |
-| `/quiz/play` | Question page |
-| `/quiz/score` | Score results |
-| `/quiz/feedback` | Per-question feedback |
+| URL                                 | Description                                                     |
+| ----------------------------------- | --------------------------------------------------------------- |
+| `/`                                 | Homepage — feature picker + upload step                         |
+| `/?selected=view-summary/upload`    | Upload for View Summary                                         |
+| `/?selected=ask-questions/upload`   | Upload for Ask Questions                                        |
+| `/?selected=quiz-time/upload`       | Upload for Quiz Time                                            |
+| `/view-summary/options?step=length` | Summary length (Step 2)                                         |
+| `/view-summary/options?step=style`  | Summary style (Step 2, multi-doc)                               |
+| `/view-summary`                     | Summary result (Step 3)                                         |
+| `/q-and-a`                          | Q&A mode selection (Step 2)                                     |
+| `/q-and-a/chat?mode=[mode]`         | Q&A chat (Step 3) — mode: default / resume / compare / glossary |
+| `/quiz/options?step=difficulty`     | Quiz setup — difficulty                                         |
+| `/quiz/options?step=count`          | Quiz setup — question count                                     |
+| `/quiz/options?step=type`           | Quiz setup — question type                                      |
+| `/quiz/options?step=input`          | Quiz setup — answer mode (theory only)                          |
+| `/quiz/ready`                       | "Are you ready?" confirmation                                   |
+| `/quiz/play`                        | Question page                                                   |
+| `/quiz/score`                       | Score results                                                   |
+| `/quiz/feedback`                    | Per-question feedback                                           |
 
 ---
 
 ## 🔑 Key Design Decisions
 
 ### Upload / Paste text
+
 - **`PasteTextInput`** is shown inline only when no files exist. Once a file is added, paste lives exclusively in `AddDocumentModal`.
 - **`FileNamingModal`** uses `detectExtension()` (from `FileNamingModal.tsx`) to auto-classify content as `.md` or `.txt` before saving.
 - **`pasteTextToStoredMeta()`** in `lib/storage.ts` converts raw text to a `StoredFileMeta` with `source: 'paste'` and `wordCount` — the file list shows this metadata instead of byte size.
 - The right panel on the upload page is `calc(100vh - 200px)` with an `overflow-y-auto` scroll zone for the file list and a sticky bottom strip for Add / Continue / footnote.
 
 ### Q&A screen management
+
 - **Max 4 left panel screens**: `[0]` landing + one per non-default mode (resume, compare, glossary)
 - `isAnalysing` is an overlay flag — it never creates or removes a screen from the array
 - Switching to a mode that already has a screen navigates to it and updates content in place
@@ -159,6 +168,7 @@ client/src/
 - `FileSelectorPopover` maintains its own local pending state; the confirmation modal fires only when the user explicitly clicks **Update**
 
 ### Shared components
+
 - **`OptionCard`** (`components/global/OptionCard.tsx`) is the single selectable card component — used by summary options, quiz options, **and** the Q&A mode picker
-- **`useSummaryFlow`** and **`useQuizFlow`** are the only places that touch `localStorage` — pages never read/write it directly
+- **`useSummaryFlow`**, **`useQuizFlow`**, and **`useQAFlow`** handle `localStorage` — individual pages also read `getStoredCollectionId()` for quiz context
 - **`lib/file-extract.ts`** is server-only (Node.js runtime) — never import it client-side

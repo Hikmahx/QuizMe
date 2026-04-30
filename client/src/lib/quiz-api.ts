@@ -4,8 +4,7 @@ import {
   EvaluateResponse,
   QuizAnswerState,
 } from '@/types/quiz';
-
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
+import { BASE_URL } from './api';
 
 // Generate questions
 export interface GenerateParams {

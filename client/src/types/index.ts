@@ -53,6 +53,7 @@ export interface SummaryFlowState {
   length: SummaryLength | null
   style: SummaryStyle | null
   step: number  // current step index within the upload→options flow (0 = upload, 1 = length, 2 = style)
+  collectionId?: string;
 }
 
 // Breadcrumb

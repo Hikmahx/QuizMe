@@ -1,11 +1,10 @@
 'use client';
 
 import { useRef, useState, useEffect, DragEvent, ChangeEvent } from 'react';
-import { formatFileSize, fileExtension, extColourClass } from '@/lib/storage';
-import { MAX_FILES, ACCEPTED_TYPES } from '@/lib/features';
+import { formatFileSize, fileExtension, extColourClass, MAX_FILE_SIZE, MAX_FILES } from '@/lib/storage';
+import { ACCEPTED_TYPES } from '@/lib/features';
 import { useSummaryFlow } from '@/hooks/useSummaryFlow';
 
-const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 MB
 
 interface FileError {
   id: string;

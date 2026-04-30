@@ -7,23 +7,13 @@ import TwoColumnLayout from '@/components/global/TwoColumnLayout';
 import Breadcrumb from '@/components/global/Breadcrumb';
 import { FEATURE_MAP } from '@/lib/features';
 import { useQuizFlow } from '@/hooks/useQuizFlow';
+import { getStoredCollectionId } from '@/lib/storage';
 
 const feature = FEATURE_MAP['quiz-time'];
 const TYPE_LABEL: Record<string, string> = {
   mcq: 'Multiple Choice',
   theory: 'Theory',
 };
-
-function getStoredCollectionId(): string {
-  if (typeof window === 'undefined') return '';
-  try {
-    const s = JSON.parse(localStorage.getItem('quizme:summary-flow') ?? '{}');
-    const id = s.collectionId ?? s.collection_id ?? '';
-    return typeof id === 'string' ? id : '';
-  } catch {
-    return '';
-  }
-}
 
 export default function QuizReadyPage() {
   const router = useRouter();

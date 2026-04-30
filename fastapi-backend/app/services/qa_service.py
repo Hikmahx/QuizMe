@@ -1,9 +1,9 @@
 import json
 import logging
-import re
 from app.llm.router import get_llm_response, get_llm_stream
 from app.core.config import get_settings
-from app.rag.retriever import retrieve_chunks, retrieve_all_chunks
+from app.rag.retriever import build_context, build_all_context
+from app.utils.text import extract_json
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
@@ -11,36 +11,9 @@ logger = logging.getLogger(__name__)
 
 # Helpers
 
-def _extract_json(text: str) -> str:
-    text = re.sub(r"```(?:json)?\s*", "", text)
-    text = re.sub(r"```\s*", "", text)
-    return text.strip()
-
-
 # Limit context size to avoid token overflow and keep LLM responses fast/cost-efficient
 def _truncate_context(context: str, max_chars: int = 8000) -> str:
     return context[:max_chars]
-
-
-def _build_context(collection_id: str, query: str, top_k: int | None = None) -> str:
-    """Retrieve the most relevant chunks and join them into a context string."""
-    k = top_k or settings.RETRIEVAL_TOP_K
-    chunks = retrieve_chunks(collection_id, query, top_k=k)
-    if not chunks:
-        return ""
-    return "\n\n---\n\n".join(
-        f"[From: {c['doc_name']}]\n{c['content']}" for c in chunks
-    )
-
-
-def _build_all_context(collection_id: str) -> str:
-    """Return ALL chunks — used for whole-document analysis (compare, glossary, detect)."""
-    chunks = retrieve_all_chunks(collection_id)
-    if not chunks:
-        return ""
-    return "\n\n---\n\n".join(
-        f"[From: {c['doc_name']}]\n{c['content']}" for c in chunks
-    )
 
 
 # Simple keyword-based intent detection to short-circuit quiz requests without LLM
@@ -150,7 +123,7 @@ def stream_chat(collection_id: str, mode: str, messages: list[dict], file_names:
         return
 
     query = _build_query(messages)
-    context = _build_context(collection_id, query)
+    context = build_context(collection_id, query)
     context = _truncate_context(context)
 
     api_messages = []
@@ -192,7 +165,7 @@ def analyze_mode(collection_id: str, mode: str, file_names: list[str]) -> dict:
     compare: Returns compareRows — one row per aspect, one value per document.
     glossary: Returns glossaryEntries — technical terms only, alphabetically sorted.
     """
-    context = _truncate_context(_build_all_context(collection_id), 15000)
+    context = _truncate_context(build_all_context(collection_id), 15000)
 
     if not context:
         return {"mismatch": True, "suggestions": ["default"]}
@@ -301,7 +274,7 @@ def _call_analyze(prompt: str) -> dict:
             temperature=0.2,
             max_tokens=3000,
         )
-        data = json.loads(_extract_json(raw or "{}"))
+        data = json.loads(extract_json(raw or "{}"))
         return data
     except (json.JSONDecodeError, Exception) as e:
         logger.error("analyze error: %s", e)
@@ -322,7 +295,7 @@ def detect_mode(collection_id: str, file_names: list[str]) -> dict:
     This is called once on chat init and results in a friendly AI suggestion
     message in the chat UI with clickable yes/no buttons.
     """
-    context = _build_all_context(collection_id)
+    context = build_all_context(collection_id)
     if not context:
         return {"suggestion": None, "reason": ""}
 
@@ -361,7 +334,7 @@ DOCUMENT CONTENT:
             temperature=0.1,
             max_tokens=200,
         )
-        data = json.loads(_extract_json(raw or "{}"))
+        data = json.loads(extract_json(raw or "{}"))
         return {
             "suggestion": data.get("suggestion"),
             "reason":     data.get("reason", ""),

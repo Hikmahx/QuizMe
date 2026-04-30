@@ -10,7 +10,7 @@ import OralAnswerPanel from '@/components/quiz/OralAnswerPanel';
 import { FEATURE_MAP } from '@/lib/features';
 import { useQuizFlow } from '@/hooks/useQuizFlow';
 import { useSummaryFlow } from '@/hooks/useSummaryFlow';
-import { uploadFilesForQuiz } from '@/lib/api';
+import { uploadFiles } from '@/lib/api';
 import { generateQuizApi } from '@/lib/quiz-api';
 import { QuizQuestion, QuizAnswerState } from '@/types/quiz';
 
@@ -76,7 +76,7 @@ export default function QuizPlayPage() {
           );
         }
 
-        const uploadResult = await uploadFilesForQuiz(files);
+        const uploadResult = await uploadFiles(files);
         const collectionId = uploadResult.collection_id;
 
         saveCollectionId(collectionId);
