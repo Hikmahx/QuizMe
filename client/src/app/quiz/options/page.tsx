@@ -1,7 +1,8 @@
 'use client';
 
 import { Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import Header from '@/components/global/Header';
 import TwoColumnLayout from '@/components/global/TwoColumnLayout';
 import Breadcrumb from '@/components/global/Breadcrumb';
@@ -66,7 +67,6 @@ const STEP_META = {
 const STEP_ORDER = ['difficulty', 'count', 'type', 'input'];
 
 function QuizOptionsInner() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const stepParam = searchParams.get('step') ?? 'difficulty';
   const flow = useQuizFlow();
@@ -85,10 +85,10 @@ function QuizOptionsInner() {
     if (step === 'input') flow.setInputMode(value as TheoryInputMode);
   };
 
-  const getNextRoute = (step: string): string => {
-    if (step === 'difficulty') return '/quiz/options?step=count';
-    if (step === 'count') return '/quiz/options?step=type';
-    if (step === 'type')
+  const getNextRoute = (): string => {
+    if (stepParam === 'difficulty') return '/quiz/options?step=count';
+    if (stepParam === 'count') return '/quiz/options?step=type';
+    if (stepParam === 'type')
       return flow.questionType === 'theory'
         ? '/quiz/options?step=input'
         : '/quiz/ready';
@@ -117,6 +117,9 @@ function QuizOptionsInner() {
     { label: 'Setup', href: '/quiz/options?step=difficulty' },
     { label: meta.heading[1].replace('.', '') },
   ];
+
+  const btnBase =
+    'w-full font-medium text-base rounded-2xl py-4 transition-all duration-200 mt-1 text-center block';
 
   return (
     <>
@@ -154,13 +157,21 @@ function QuizOptionsInner() {
                 />
               ))}
             </div>
-            <button
-              disabled={!canContinue}
-              onClick={() => router.push(getNextRoute(stepParam))}
-              className='w-full bg-primary text-white font-medium text-base rounded-2xl py-4 hover:opacity-90 active:scale-[0.99] disabled:opacity-35 disabled:cursor-not-allowed transition-all duration-200 mt-1'
-            >
-              Continue
-            </button>
+            {canContinue ? (
+              <Link
+                href={getNextRoute()}
+                className={`${btnBase} bg-primary text-white hover:opacity-90 active:scale-[0.99]`}
+              >
+                Continue
+              </Link>
+            ) : (
+              <button
+                disabled
+                className={`${btnBase} bg-primary text-white opacity-35 cursor-not-allowed`}
+              >
+                Continue
+              </button>
+            )}
           </div>
         }
       />

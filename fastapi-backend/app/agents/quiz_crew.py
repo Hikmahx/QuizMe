@@ -6,13 +6,12 @@ Grading uses a single direct LLM call for ALL questions at once:
   N questions = 1 LLM call, not N calls.
 """
 
-import json
 import logging
 from crewai import Crew
 from .quiz_tasks import generate_mcq_task, generate_theory_task
 from app.llm.router import get_llm_response
 from app.core.config import get_settings
-from app.utils.text import extract_json
+from app.utils.text import extract_json, parse_json_robust
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
@@ -42,12 +41,15 @@ def run_quiz_generation(
         verbose=False,
     )
 
-    # crew.kickoff() returns CrewOutput — use .raw to get the text
     result = crew.kickoff()
-    raw= result.raw if hasattr(result, "raw") else str(result)
+    raw = result.raw if hasattr(result, "raw") else str(result)
 
     try:
-        parsed = json.loads(extract_json(raw))
+        # parse_json_robust handles:
+        #   - prose preamble before the JSON array
+        #   - trailing text after the closing bracket
+        #   - minor syntax errors (trailing commas, etc.)
+        parsed = parse_json_robust(raw)
         if not isinstance(parsed, list):
             raise ValueError("Expected a JSON array at the top level.")
         return parsed
@@ -104,14 +106,13 @@ Each object: {{ "correct": bool, "score_pct": int, "explanation": "str", "tip": 
 
     raw = ""
     try:
-        # Token budget: ~150 tokens per feedback item, capped at the grading limit
         max_tok = min(settings.LLM_MAX_TOKENS_GRADING, 150 * len(items))
         raw = get_llm_response(
             messages=[{"role": "user", "content": prompt}],
             temperature=0.1,
             max_tokens=max_tok,
         )
-        parsed = json.loads(extract_json(raw))
+        parsed = parse_json_robust(raw)
 
         if not isinstance(parsed, list):
             raise ValueError("Expected a JSON array")
@@ -140,14 +141,14 @@ def _format_item(n: int, item: dict) -> str:
     if qtype == "mcq" and item.get("correct_answer"):
         lines.append(f"Correct answer: {item['correct_answer']}")
     if item.get("context"):
-        ctx = item["context"][:500]   # cap per-question context
+        ctx = item["context"][:500]
         lines.append(f"Document context (fact-check only):\n{ctx}")
     return "\n".join(lines)
 
 
 def _clean_entry(entry: dict, item: dict) -> dict:
     explanation = str(entry.get("explanation", "")).lower()
-    # Hallucination guard
+    # Hallucination guard — LLM sometimes claims no answer was given
     if item.get("user_answer") and any(p in explanation for p in [
         "no answer", "not provided", "did not provide",
         "answer is missing", "no response", "left blank",
