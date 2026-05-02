@@ -1,9 +1,14 @@
 import hashlib
-from datetime import datetime, timezone
+import logging
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.exc import IntegrityError
 
 from app.core.database import SessionLocal, DocumentCollection, DocumentChunk
+from app.core.config import get_settings
+
+logger = logging.getLogger(__name__)
+settings = get_settings()
 
 
 def make_collection_id(files: list[dict]) -> str:
@@ -60,3 +65,43 @@ def store_chunks(collection_id: str, chunks: list[dict]):
         db.commit()
     finally:
         db.close()
+
+
+def cleanup_stale_collections() -> int:
+    """
+    Delete DocumentCollections (and their chunks via CASCADE) that have not
+    been accessed within COLLECTION_TTL_DAYS.
+
+    Returns the number of collections deleted.
+    """
+    cutoff = datetime.now(timezone.utc) - timedelta(days=settings.COLLECTION_TTL_DAYS)
+    db = SessionLocal()
+    deleted = 0
+    try:
+        stale = (
+            db.query(DocumentCollection)
+            .filter(DocumentCollection.last_accessed < cutoff)
+            .all()
+        )
+        for collection in stale:
+            logger.info(
+                "TTL cleanup: deleting collection %s (last_accessed=%s)",
+                collection.id,
+                collection.last_accessed,
+            )
+            db.delete(collection)
+            deleted += 1
+
+        if deleted:
+            db.commit()
+            logger.info("TTL cleanup: removed %d stale collection(s).", deleted)
+        else:
+            logger.debug("TTL cleanup: nothing to remove.")
+    except Exception:
+        db.rollback()
+        logger.exception("TTL cleanup failed — rolled back.")
+        raise
+    finally:
+        db.close()
+
+    return deleted
