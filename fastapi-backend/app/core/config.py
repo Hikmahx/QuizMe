@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     @property
     def ALLOWED_ORIGINS(self) -> List[str]:
         return [o.strip() for o in self.ALLOWED_ORIGINS_STR.split(",") if o.strip()]
+
     DATABASE_URL: str
 
     # LLM providers
@@ -45,15 +46,18 @@ class Settings(BaseSettings):
     RETRIEVAL_TOP_K:       int = 3   # per-question context (lower = faster grading)
     RETRIEVAL_TOP_K_BROAD: int = 15  # whole-document scan for generation
 
-    # Upload
-    MAX_FILE_SIZE_MB:      int = 20
-    MAX_FILES_PER_SESSION: int = 10
+    # Upload limits — kept in sync with frontend storage.ts
+    MAX_FILE_SIZE_MB:      int = 10
+    MAX_FILES_PER_SESSION: int = 2
     ALLOWED_MIME_TYPES: List[str] = [
         "application/pdf",
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         "text/plain",
         "text/markdown",
     ]
+
+    # Collection TTL — collections not accessed within this many days are deleted
+    COLLECTION_TTL_DAYS: int = 1 
 
     # Voice
     ASSEMBLYAI_API_KEY: str = ""

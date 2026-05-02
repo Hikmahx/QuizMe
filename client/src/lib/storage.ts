@@ -4,8 +4,8 @@ import { StoredFileMeta, SummaryFlowState } from '@/types';
 const SUMMARY_FLOW_KEY = 'quizme:summary-flow';
 
 // Constants for validation
-export const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
-export const MAX_FILES = 10;
+export const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+export const MAX_FILES = 2;
 export const ACCEPTED_EXTENSIONS = ['pdf', 'docx', 'txt'];
 export const ACCEPTED_MIME_TYPES = [
   'application/pdf',
@@ -14,6 +14,7 @@ export const ACCEPTED_MIME_TYPES = [
 ];
 
 // Generic helpers
+
 function getItem(key: string): unknown {
   if (typeof window === 'undefined') return null;
   try {
@@ -24,12 +25,20 @@ function getItem(key: string): unknown {
   }
 }
 
-function setItem(key: string, value: unknown): void {
-  if (typeof window === 'undefined') return;
+function setItem(key: string, value: unknown): boolean {
+  if (typeof window === 'undefined') return false;
   try {
     localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    // quota exceeded or SSR — fail silently
+    return true;
+  } catch (err) {
+    // DOMException with name 'QuotaExceededError' on iOS Safari
+    if (err instanceof DOMException && err.name === 'QuotaExceededError') {
+      console.warn(
+        'localStorage quota exceeded. Files may not persist on this device. ' +
+          'Try using smaller files or fewer files at once.',
+      );
+    }
+    return false;
   }
 }
 
@@ -38,26 +47,24 @@ function removeItem(key: string): void {
   localStorage.removeItem(key);
 }
 
-// Validation function
+// File validation
+
 export function validateFile(file: File): { valid: boolean; error?: string } {
-  // Check file size
   if (file.size > MAX_FILE_SIZE) {
     return {
       valid: false,
-      error: `File "${file.name}" exceeds the 20MB limit (${formatFileSize(file.size)})`,
+      error: `File "${file.name}" exceeds the 10 MB limit (${formatFileSize(file.size)})`,
     };
   }
 
-  // Check file extension
   const ext = file.name.split('.').pop()?.toLowerCase();
   if (!ext || !ACCEPTED_EXTENSIONS.includes(ext)) {
     return {
       valid: false,
-      error: `File "${file.name}" has an unsupported file type (.${ext || 'unknown'}). Allowed: ${ACCEPTED_EXTENSIONS.join(', ')}`,
+      error: `File "${file.name}" has an unsupported type (.${ext || 'unknown'}). Allowed: ${ACCEPTED_EXTENSIONS.join(', ')}`,
     };
   }
 
-  // Check MIME type (optional, as extensions are usually sufficient)
   if (!ACCEPTED_MIME_TYPES.includes(file.type) && file.type !== '') {
     console.warn(`File "${file.name}" has unexpected MIME type: ${file.type}`);
   }
@@ -65,10 +72,10 @@ export function validateFile(file: File): { valid: boolean; error?: string } {
   return { valid: true };
 }
 
-// File → base64 with improved error handling
+// File → StoredFileMeta
+
 export function fileToStoredMeta(file: File): Promise<StoredFileMeta> {
   return new Promise((resolve, reject) => {
-    // Validate first
     const validation = validateFile(file);
     if (!validation.valid) {
       reject(new Error(validation.error));
@@ -78,13 +85,12 @@ export function fileToStoredMeta(file: File): Promise<StoredFileMeta> {
     const reader = new FileReader();
     let isResolved = false;
 
-    // Set timeout to prevent hanging
     const timeoutId = setTimeout(() => {
       if (!isResolved) {
         reader.abort();
         reject(new Error(`Timeout reading file: ${file.name}`));
       }
-    }, 30000); // 30 second timeout
+    }, 30_000);
 
     reader.onload = () => {
       if (!isResolved) {
@@ -117,7 +123,7 @@ export function fileToStoredMeta(file: File): Promise<StoredFileMeta> {
 
     try {
       reader.readAsDataURL(file);
-    } catch (error) {
+    } catch {
       clearTimeout(timeoutId);
       reject(new Error(`Failed to start reading file: ${file.name}`));
     }
@@ -130,24 +136,20 @@ export async function filesToStoredMeta(
   const results: StoredFileMeta[] = [];
   const errors: string[] = [];
 
-  // Process files sequentially to avoid overwhelming memory
   for (const file of files) {
     try {
-      const stored = await fileToStoredMeta(file);
-      results.push(stored);
+      results.push(await fileToStoredMeta(file));
     } catch (error) {
       errors.push(error instanceof Error ? error.message : String(error));
     }
   }
 
-  if (errors.length > 0) {
-    console.warn('Some files failed to process:', errors);
-  }
-
+  if (errors.length > 0) console.warn('Some files failed to process:', errors);
   return results;
 }
 
 // Summary flow state
+
 export const DEFAULT_SUMMARY_FLOW: SummaryFlowState = {
   files: [],
   length: null,
@@ -158,9 +160,7 @@ export const DEFAULT_SUMMARY_FLOW: SummaryFlowState = {
 export function getSummaryFlow(): SummaryFlowState {
   const stored = getItem(SUMMARY_FLOW_KEY) as SummaryFlowState | null;
 
-  // Validate stored files (they might be corrupted or too large)
   if (stored?.files && Array.isArray(stored.files)) {
-    // Filter out any files that might be corrupted
     const validFiles = stored.files.filter(
       (file) =>
         file.name &&
@@ -171,7 +171,6 @@ export function getSummaryFlow(): SummaryFlowState {
     );
 
     if (validFiles.length !== stored.files.length) {
-      // Save back the cleaned list
       setSummaryFlow({ files: validFiles });
       return { ...DEFAULT_SUMMARY_FLOW, ...stored, files: validFiles };
     }
@@ -183,7 +182,6 @@ export function getSummaryFlow(): SummaryFlowState {
 export function setSummaryFlow(state: Partial<SummaryFlowState>): void {
   const current = getSummaryFlow();
 
-  // Validate files before saving
   const validatedState = { ...state };
   if (state.files) {
     validatedState.files = state.files.filter(
@@ -196,14 +194,24 @@ export function setSummaryFlow(state: Partial<SummaryFlowState>): void {
     );
   }
 
-  setItem(SUMMARY_FLOW_KEY, { ...current, ...validatedState });
+  const saved = setItem(SUMMARY_FLOW_KEY, { ...current, ...validatedState });
+
+  // If saving failed (quota exceeded on iOS), warn in the console.
+  // The in-memory store still works for the current session.
+  if (!saved) {
+    console.warn(
+      'Could not persist files to localStorage — likely iOS quota exceeded. ' +
+        'Files will work for this session but will not survive a page refresh.',
+    );
+  }
 }
 
 export function clearSummaryFlow(): void {
   removeItem(SUMMARY_FLOW_KEY);
 }
 
-// Utility functions
+// Utilities
+
 export function formatFileSize(bytes: number): string {
   if (bytes < 0) return '0 B';
   if (bytes < 1024) return `${bytes} B`;
@@ -214,8 +222,7 @@ export function formatFileSize(bytes: number): string {
 }
 
 export function fileExtension(name: string): string {
-  const ext = name.split('.').pop();
-  return ext?.toUpperCase() ?? 'FILE';
+  return name.split('.').pop()?.toUpperCase() ?? 'FILE';
 }
 
 export function extColourClass(name: string): string {
@@ -226,25 +233,22 @@ export function extColourClass(name: string): string {
   return 'text-gray-400';
 }
 
-// Helper to clean up large data URLs if needed (useful for memory management)
 export function cleanupDataUrl(dataUrl: string): void {
   if (typeof window !== 'undefined' && dataUrl.startsWith('blob:')) {
     try {
       URL.revokeObjectURL(dataUrl);
     } catch {
-      // Ignore cleanup errors
+      /* ignore */
     }
   }
 }
 
-/** Convert raw pasted text into a StoredFileMeta (no FileReader needed). */
 export function pasteTextToStoredMeta(
   text: string,
   filename: string,
 ): StoredFileMeta {
   const wordCount = text.trim() ? text.trim().split(/\s+/).length : 0;
   const mimeType = filename.endsWith('.md') ? 'text/markdown' : 'text/plain';
-  // Encode to UTF-8 bytes then base64 (handles emoji / non-ASCII)
   const bytes = new TextEncoder().encode(text);
   let binary = '';
   bytes.forEach((b) => (binary += String.fromCharCode(b)));
@@ -259,23 +263,24 @@ export function pasteTextToStoredMeta(
   };
 }
 
-// Helper to get total size of all stored files
 export function getTotalStorageSize(files: StoredFileMeta[]): number {
   return files.reduce((total, file) => total + (file.size || 0), 0);
 }
 
-// Warn if approaching localStorage limits (usually ~5-10MB)
 export function checkStorageQuota(files: StoredFileMeta[]): boolean {
   const totalSize = getTotalStorageSize(files);
-  const isApproachingLimit = totalSize > 4 * 1024 * 1024; // 4MB warning threshold
-
-  if (isApproachingLimit) {
+  // base64 inflates by ~1.33x, so 3 × 10 MB files ≈ ~40 MB base64.
+  // iOS localStorage cap is ~5 MB, desktop is ~10 MB.
+  // Warn when total base64 size approaches 4 MB.
+  const base64Size = totalSize * 1.33;
+  const isApproaching = base64Size > 4 * 1024 * 1024;
+  if (isApproaching) {
     console.warn(
-      `Total file size (${formatFileSize(totalSize)}) is approaching localStorage limits. Consider using fewer or smaller files.`,
+      `Estimated storage usage (${formatFileSize(base64Size)}) may exceed ` +
+        `mobile browser limits. Files will work this session but may not persist on reload.`,
     );
   }
-
-  return isApproachingLimit;
+  return isApproaching;
 }
 
 export function getStoredCollectionId(): string | null {

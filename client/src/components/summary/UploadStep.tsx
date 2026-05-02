@@ -175,7 +175,7 @@ export default function UploadStep({ feature }: UploadStepProps) {
                   name='information-circle-outline'
                   style={{ fontSize: '13px' }}
                 />
-                Max 10 documents per session
+                Max 2 documents per session
               </p>
             </div>
           </div>

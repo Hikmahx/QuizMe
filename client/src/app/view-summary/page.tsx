@@ -40,17 +40,47 @@ export default function ViewSummaryPage() {
   useEffect(() => {
     if (!hydrated) return;
     if (files.length === 0 || !length) {
-      router.replace('/?selected=view-summary/upload');
+      if (!summaryLoading) {
+        router.replace('/?selected=view-summary/upload');
+      }
       return;
     }
-    // On page load/reload, if there's no summary and we're not already fetching,
-    // trigger generation automatically so a reload doesn't leave a blank page.
+
     if (!summary && !summaryLoading && !summaryError) {
       generateSummary();
     }
-  }, [hydrated]); // intentionally only on hydration — we don't want to re-fetch on every render
+  }, [hydrated]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (!hydrated || files.length === 0 || !length) return null;
+  if (!hydrated) return null;
+
+  // Show the error state even if we can't redirect — don't leave a blank page
+  if (!summaryLoading && summaryError && (files.length === 0 || !length)) {
+    return (
+      <div className='relative z-10 flex flex-col min-h-screen animate-fade-in'>
+        <Header />
+        <div className='flex flex-col items-center justify-center flex-1 px-6 gap-6'>
+          <div className='max-w-md w-full flex flex-col gap-4 p-6 bg-red-500/10 border border-red-400/30 rounded-2xl'>
+            <p className='text-red-500 text-sm leading-relaxed'>
+              <strong className='text-app-text'>Something went wrong.</strong>{' '}
+              {summaryError}
+            </p>
+            {/* <button
+              onClick={() => router.push('/?selected=view-summary/upload')}
+              className='self-start px-4 py-2 bg-purple-500 text-white text-sm rounded-xl hover:bg-purple-600 transition-colors'
+            >
+              Upload files again
+            </button> */}
+            <p className='text-red-500 text-sm leading-relaxed'>
+              Please try refreshing the page. If the issue persists, upload
+              files again.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (files.length === 0 || !length) return null;
 
   const isMulti = files.length > 1;
   const lenLabel = length.charAt(0).toUpperCase() + length.slice(1);
@@ -62,7 +92,6 @@ export default function ViewSummaryPage() {
   const isDocByDoc = resolvedStyle === 'doc-by-doc';
   const isCombined = resolvedStyle === 'combined';
 
-  // Only show a style label in the breadcrumb when there are multiple documents.
   const styleLabel = isMulti
     ? isDocByDoc
       ? 'Doc-by-doc'
@@ -88,17 +117,17 @@ export default function ViewSummaryPage() {
     router.push('/?selected=view-summary/upload');
   };
 
-  const handleRetry = () => {
-    generateSummary();
-  };
-
   const rightContent = (() => {
     if (summaryLoading) {
       return (
         <div className='flex flex-col items-center justify-center h-64 gap-4'>
           <div className='w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin' />
-          <p className='text-app-text-secondary text-sm'>
+          <p className='text-app-text-secondary text-sm text-center leading-relaxed'>
             Generating your summary…
+            <br />
+            <span className='text-app-text-secondary/60 text-xs'>
+              This might take a while for large files.
+            </span>
           </p>
         </div>
       );
@@ -112,7 +141,7 @@ export default function ViewSummaryPage() {
             {summaryError}
           </p>
           <button
-            onClick={handleRetry}
+            onClick={() => generateSummary()}
             className='self-start px-4 py-2 bg-purple-500 text-white text-sm rounded-xl hover:bg-purple-600 transition-colors'
           >
             Try again
@@ -171,7 +200,7 @@ export default function ViewSummaryPage() {
 
         {/* {summary?.fallback && (
           <div className='flex items-start gap-3 bg-amber-500/10 border border-amber-400/30 rounded-xl p-4 mb-6'>
-            <p className='text-amber-300 text-sm leading-relaxed'>
+            <p className='text-app-text-secondary text-sm leading-relaxed'>
               <strong className='text-app-text'>
                 Documents appear unrelated.
               </strong>{' '}

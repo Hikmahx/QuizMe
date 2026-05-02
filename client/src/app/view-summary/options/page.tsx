@@ -81,7 +81,7 @@ function LengthStep() {
             <button
               onClick={handleContinue}
               disabled={!length}
-              className='w-full bg-purple-500 text-app-text font-medium text-base rounded-2xl py-4 hover:bg-purple-600 active:scale-[0.99] disabled:opacity-35 disabled:cursor-not-allowed transition-all duration-200 mt-1'
+              className='w-full bg-purple-500 text-white font-medium text-base rounded-2xl py-4 hover:bg-purple-600 active:scale-[0.99] disabled:opacity-35 disabled:cursor-not-allowed transition-all duration-200 mt-1'
             >
               {files.length > 1 ? 'Continue' : 'Generate Summary'}
             </button>
