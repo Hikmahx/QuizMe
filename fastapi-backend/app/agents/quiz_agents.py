@@ -13,7 +13,9 @@ from crewai import Agent
 from crewai.llms.base_llm import BaseLLM
 
 from app.llm.router import get_llm_response
+from app.core.config import get_settings
 
+settings = get_settings()
 logger = logging.getLogger(__name__)
 
 
@@ -27,9 +29,12 @@ class FallbackLLM(BaseLLM):
       - acall(messages, ...) -> str  (async version)
     """
 
-    def __init__(self, temperature: float = 0.3, **kwargs):
+    def __init__(self, temperature: float = 0.3, max_tokens: int | None = None, **kwargs):
         super().__init__(model="fallback-router", **kwargs)
         self._temperature = temperature
+        # Store max_tokens so each agent can request a different output budget.
+        # None means the router falls back to settings.LLM_MAX_TOKENS (4096).
+        self._max_tokens = max_tokens
 
     def call(
         self,
@@ -39,7 +44,11 @@ class FallbackLLM(BaseLLM):
         **kwargs,
     ) -> str:
         """Synchronous call — used by CrewAI during task execution."""
-        return get_llm_response(messages, temperature=self._temperature)
+        return get_llm_response(
+            messages,
+            temperature=self._temperature,
+            max_tokens=self._max_tokens,
+        )
 
     async def acall(
         self,
@@ -53,10 +62,14 @@ class FallbackLLM(BaseLLM):
         return await asyncio.to_thread(self.call, messages)
 
 
-# Higher temperature for generation (creative questions)
-# Lower temperature for grading (consistent, reproducible scores)
-_llm_generate = FallbackLLM(temperature=0.5)
-_llm_grade    = FallbackLLM(temperature=0.1)
+# Generation needs a large output budget.
+# 30 MCQ questions × ~200 tokens each = ~6000 tokens minimum.
+# Cap at 8000 which is within Groq llama-3.3-70b's supported output range.
+_llm_generate = FallbackLLM(temperature=0.5, max_tokens=8000)
+
+# Grading is a single batched call — the existing LLM_MAX_TOKENS_GRADING
+# setting controls the budget via run_batch_grade's explicit max_tok argument.
+_llm_grade = FallbackLLM(temperature=0.1)
 
 
 quiz_generator = Agent(

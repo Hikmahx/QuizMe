@@ -9,7 +9,8 @@ Key design decisions:
   N questions = 1 LLM call, not N calls.
 - All RAG lookups for grading happen up-front before the single LLM call,
   so the model has all context in one prompt.
-- The stop-words set is intentionally manual — no extra dependency needed.
+- Document content is truncated before generation so the bulk of the token
+  budget goes to output questions, not the input context.
 """
 
 import logging
@@ -21,7 +22,14 @@ from app.schemas.quiz import GeneratedQuestion, MCQOption, QuizFeedback
 settings = get_settings()
 logger   = logging.getLogger(__name__)
 
-# Stop-words excluded from the relevance keyword check
+# Token budget for document content injected into the generation prompt.
+# The full prompt template + instructions takes ~800 chars.
+# We leave the rest for the LLM's output (questions).
+# Groq llama-3.3-70b supports 128k context total.
+# We cap content at 12000 chars (~3000 tokens) so the model has
+# plenty of room to produce 30 questions without hitting output limits.
+_CONTENT_MAX_CHARS = 12_000
+
 _STOP_WORDS = {
     "a", "an", "the", "is", "are", "was", "were", "be", "been", "being",
     "have", "has", "had", "do", "does", "did", "will", "would", "could",
@@ -41,7 +49,9 @@ def generate_quiz(
 ) -> list[GeneratedQuestion]:
     """
     Retrieve document content via RAG and generate quiz questions.
-    Uses a broad query to get a cross-section of the whole document.
+
+    Content is truncated to _CONTENT_MAX_CHARS before being passed to the
+    generator so the model's output token budget goes to questions, not context.
     """
     content = build_context(
         collection_id,
@@ -53,6 +63,16 @@ def generate_quiz(
         raise ValueError(
             "No content found for this collection. "
             "Please upload your documents first."
+        )
+
+    # Truncate to leave room for the model to output all requested questions.
+    # At the boundary we cut at the last full stop so we don't split mid-sentence.
+    if len(content) > _CONTENT_MAX_CHARS:
+        truncated = content[:_CONTENT_MAX_CHARS]
+        last_stop = truncated.rfind(". ")
+        content = truncated[: last_stop + 1] if last_stop != -1 else truncated
+        logger.info(
+            "Document content truncated to %d chars for generation.", len(content)
         )
 
     raw_questions = run_quiz_generation(content, difficulty, count, question_type)
@@ -89,7 +109,7 @@ def evaluate_answers(
     Grade all answers and return (feedbacks, overall_pct).
 
     Steps:
-      1. Retrieve grading context for every question up-front (parallel-friendly).
+      1. Retrieve grading context for every question up-front.
       2. Send ALL questions + answers to the LLM in a single batched call.
       3. Parse and return.
 
