@@ -29,7 +29,11 @@ function LengthStep() {
     if (files.length > 1) {
       router.push('/view-summary/options?step=style');
     } else {
-      clearSummary();
+      // clearSummary();
+
+      // Fire generation immediately so it runs in the background while the
+      // user is navigated to /view-summary. The page shows a loading state
+      // until the result arrives — even if they switch apps and come back.
       generateSummary();
       router.push('/view-summary');
     }
@@ -103,7 +107,9 @@ function StyleStep() {
 
   const handleContinue = () => {
     if (!style) return;
-    clearSummary();
+    // clearSummary();
+
+    // Fire generation immediately — navigate right away, result arrives in background.
     generateSummary();
     router.push('/view-summary');
   };

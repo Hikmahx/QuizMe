@@ -147,7 +147,8 @@ export default function QuizFeedbackPage() {
                       Grading…
                     </p>
                     <p className='text-app-text-secondary text-sm'>
-                      AI agent is evaluating your answers
+                      AI is evaluating your answers — this may take
+                      10–20 seconds
                     </p>
                   </>
                 ) : (
@@ -203,6 +204,9 @@ export default function QuizFeedbackPage() {
                 <div className='w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin' />
                 <p className='text-app-text-secondary text-sm'>
                   Grading {questions.length} answers…
+                </p>
+                <p className='text-app-text-secondary/50 text-xs'>
+                  This might take a moment — hang tight
                 </p>
               </div>
             ) : (

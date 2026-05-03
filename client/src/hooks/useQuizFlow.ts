@@ -9,10 +9,11 @@ import {
 const STORAGE_KEY = 'quizme:quiz-flow'
 
 const DEFAULT: QuizFlowOptions = {
-  difficulty:    null,
-  questionCount: null,
-  questionType:  null,
-  inputMode:     null,
+  // Pre-select the first option in each step
+  difficulty:    'easy',
+  questionCount: 10,
+  questionType:  'mcq',
+  inputMode:     'written',
 }
 
 function load(): QuizFlowOptions {
