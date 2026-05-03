@@ -1,9 +1,5 @@
 """
 quiz_crew.py — CrewAI for generation, direct LLM for grading.
-
-Generation still uses CrewAI (one call, complex structured output).
-Grading uses a single direct LLM call for ALL questions at once:
-  N questions = 1 LLM call, not N calls.
 """
 
 import logging
@@ -25,40 +21,29 @@ def run_quiz_generation(
     count: int,
     qtype: str,
 ) -> list[dict]:
-    """
-    Generate quiz questions via a single CrewAI agent call.
-    Returns a list of raw question dicts.
-    Raises ValueError if the output cannot be parsed as a JSON array.
-    """
-    task = (
-        generate_mcq_task(content, difficulty, count)
-        if qtype == "mcq"
-        else generate_theory_task(content, difficulty, count)
-    )
-    crew = Crew(
-        agents=[task.agent],
-        tasks=[task],
-        verbose=False,
-    )
-
-    result = crew.kickoff()
-    raw = result.raw if hasattr(result, "raw") else str(result)
-
-    try:
-        # parse_json_robust handles:
-        #   - prose preamble before the JSON array
-        #   - trailing text after the closing bracket
-        #   - minor syntax errors (trailing commas, etc.)
-        parsed = parse_json_robust(raw)
-        if not isinstance(parsed, list):
-            raise ValueError("Expected a JSON array at the top level.")
-        return parsed
-    except Exception as e:
-        logger.error(
-            "Generation JSON parse error: %s\nRaw (first 600 chars): %s",
-            e, raw[:600],
+    for attempt in range(3):
+        task = (
+            generate_mcq_task
+            if qtype == "mcq"
+            else generate_theory_task
+        )(
+            content, difficulty, count
         )
-        raise ValueError(f"Could not parse generated questions: {e}")
+        crew = Crew(
+            agents=[task.agent],
+            tasks=[task],
+            verbose=False,
+        )
+
+        result = crew.kickoff()
+        raw = result.raw if hasattr(result, "raw") else str(result)
+        try:
+            parsed = parse_json_robust(raw)
+            if isinstance(parsed, list) and len(parsed) >= count:
+                return parsed[:count]
+        except Exception:
+            pass
+    raise ValueError(f"Failed to generate {count} questions after 3 attempts")
 
 
 # Grading (direct LLM — 1 call for ALL questions)

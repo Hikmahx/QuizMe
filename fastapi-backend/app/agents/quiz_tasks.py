@@ -10,87 +10,112 @@ Generation output (theory):
 Grading output:
   { correct, score_pct, explanation, tip }
   score_pct: 0-100 integer.  MCQ = 100 or 0.  Theory = 0-100.
+
+Count enforcement:
+  Pre-numbered scaffolds are embedded in each generation prompt so the model
+  fills N slots rather than counting while generating. This is the primary
+  mechanism for hitting the exact question count reliably (~95%+).
+  Prose-only "create exactly N" instructions are unreliable because the model
+  treats the array as a creative task and stops when it feels done.
 """
 
 from crewai import Task
 from .quiz_agents import quiz_generator, quiz_grader
 
 
+def _mcq_scaffold(count: int) -> str:
+    """Pre-numbered JSON scaffold with count MCQ placeholder objects."""
+    items = []
+    for i in range(1, count + 1):
+        items.append(
+            f'  {{\n'
+            f'    "id": {i},\n'
+            f'    "text": "Question {i} text?",\n'
+            f'    "options": [\n'
+            f'      {{"letter": "A", "text": "..."}},\n'
+            f'      {{"letter": "B", "text": "..."}},\n'
+            f'      {{"letter": "C", "text": "..."}},\n'
+            f'      {{"letter": "D", "text": "..."}}\n'
+            f'    ],\n'
+            f'    "correctIndex": 0\n'
+            f'  }}'
+        )
+    return "[\n" + ",\n".join(items) + "\n]"
+
+
+def _theory_scaffold(count: int) -> str:
+    """Pre-numbered JSON scaffold with count theory placeholder objects."""
+    items = [
+        f'  {{"id": {i}, "text": "Question {i} text?"}}'
+        for i in range(1, count + 1)
+    ]
+    return "[\n" + ",\n".join(items) + "\n]"
+
+
 def generate_mcq_task(content: str, difficulty: str, count: int) -> Task:
+    scaffold = _mcq_scaffold(count)
     return Task(
-        description=f"""
-Create exactly {count} multiple-choice questions from the DOCUMENT CONTENT below.
+        description=f"""\
+Generate exactly {count} multiple-choice questions from the DOCUMENT CONTENT below.
+Replace every placeholder in the OUTPUT SCAFFOLD with a real question.
+Every one of the {count} numbered slots must be filled — do not skip any.
 
 DIFFICULTY: {difficulty}
   easy   — recall: answer is stated directly in the text
   medium — understanding: requires reading between the lines
   hard   — analysis: requires combining ideas from multiple parts
 
-STRICT RULES:
-1. Every question MUST be answerable from the DOCUMENT CONTENT provided below.
-   Do NOT use general knowledge or outside information.
+RULES:
+1. Every question MUST be answerable from the DOCUMENT CONTENT below. No outside knowledge.
 2. Each question has exactly 4 options labelled A, B, C, D.
-3. Exactly ONE option is correct.
-4. Distribute the correct answer across all positions (not always index 0).
-5. Distractors must be plausible but clearly wrong based on the document.
-6. Cover different sections — do not cluster all questions on one topic.
-7. Return ONLY the JSON array. No markdown fences, no explanation, no extra text.
+3. Exactly ONE option is correct. Vary correctIndex across 0, 1, 2, 3 — do not always use 0.
+4. Distractors must be plausible but clearly wrong based on the document.
+5. Cover different sections — do not cluster all questions on one topic.
+6. Return ONLY the completed JSON array. No markdown fences, no prose, nothing else.
 
-OUTPUT FORMAT (correctIndex = 0-based index of the correct option):
-[
-  {{
-    "id": 1,
-    "text": "Question text?",
-    "options": [
-      {{"letter": "A", "text": "..."}},
-      {{"letter": "B", "text": "..."}},
-      {{"letter": "C", "text": "..."}},
-      {{"letter": "D", "text": "..."}}
-    ],
-    "correctIndex": 2
-  }}
-]
+OUTPUT SCAFFOLD — replace all {count} placeholders, keep the structure exactly:
+{scaffold}
 
 DOCUMENT CONTENT:
 {content}
 """,
         expected_output=(
-            f"A JSON array of exactly {count} MCQ objects, each with "
-            "id (int), text (str), options (4 items with letter+text), correctIndex (int 0-3)."
+            f"A completed JSON array of exactly {count} MCQ objects. "
+            "Each object: id (int), text (str), options (4 items: letter+text), correctIndex (int 0-3). "
+            "No markdown, no extra text."
         ),
         agent=quiz_generator,
     )
 
 
 def generate_theory_task(content: str, difficulty: str, count: int) -> Task:
+    scaffold = _theory_scaffold(count)
     return Task(
-        description=f"""
-Create exactly {count} open-ended theory questions from the DOCUMENT CONTENT below.
+        description=f"""\
+Generate exactly {count} open-ended theory questions from the DOCUMENT CONTENT below.
+Replace every placeholder in the OUTPUT SCAFFOLD with a real question.
+Every one of the {count} numbered slots must be filled — do not skip any.
 
 DIFFICULTY: {difficulty}
   easy   — "what is" / "describe" questions requiring recall
   medium — "explain how" / "compare" questions requiring understanding
   hard   — "analyse" / "evaluate" questions requiring deep thinking
 
-STRICT RULES:
-1. Every question MUST be directly answerable from the DOCUMENT CONTENT below.
-   Do NOT use general knowledge or outside information.
+RULES:
+1. Every question MUST be directly answerable from the DOCUMENT CONTENT below. No outside knowledge.
 2. Questions must require more than a one-word answer.
 3. Cover different sections — do not cluster on one topic.
-4. Return ONLY the JSON array. No markdown fences, no explanation, no extra text.
+4. Return ONLY the completed JSON array. No markdown fences, no prose, nothing else.
 
-OUTPUT FORMAT:
-[
-  {{"id": 1, "text": "Explain the concept of..."}},
-  {{"id": 2, "text": "What is the significance of..."}}
-]
+OUTPUT SCAFFOLD — replace all {count} placeholders, keep the structure exactly:
+{scaffold}
 
 DOCUMENT CONTENT:
 {content}
 """,
         expected_output=(
-            f"A JSON array of exactly {count} theory question objects, "
-            "each with id (int) and text (str) only."
+            f"A completed JSON array of exactly {count} theory question objects. "
+            "Each object: id (int) and text (str) only. No markdown, no extra text."
         ),
         agent=quiz_generator,
     )
@@ -112,7 +137,7 @@ def grade_answer_task(
     """
 
     if question_type == "mcq":
-        grading_block = f"""
+        grading_block = f"""\
 QUESTION TYPE: Multiple Choice
 
 CORRECT ANSWER: {correct_answer}
@@ -123,7 +148,7 @@ score_pct = 100 and correct = true. Otherwise score_pct = 0 and correct = false.
 In your explanation, state WHY the correct answer is right, referencing the document context.
 """
     else:
-        grading_block = f"""
+        grading_block = f"""\
 QUESTION TYPE: Open-ended Theory
 
 THE STUDENT HAS PROVIDED THE ANSWER BELOW. It exists. Grade it.
@@ -167,7 +192,7 @@ MANDATORY GRADING RULES — follow every one without exception:
     )
 
     return Task(
-        description=f"""
+        description=f"""\
 Grade this quiz answer and return a JSON object.
 
 QUESTION: {question}
