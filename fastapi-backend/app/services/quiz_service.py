@@ -11,9 +11,12 @@ Key design decisions:
   so the model has all context in one prompt.
 - Document content is truncated before generation so the bulk of the token
   budget goes to output questions, not the input context.
+- MCQ options are shuffled after generation so the correct answer is
+  never always A — the LLM tends to write the correct answer first.
 """
 
 import logging
+import random
 from app.rag.retriever import build_context, retrieve_chunks
 from app.core.config import get_settings
 from app.agents.quiz_crew import run_quiz_generation, run_batch_grade
@@ -22,12 +25,6 @@ from app.schemas.quiz import GeneratedQuestion, MCQOption, QuizFeedback
 settings = get_settings()
 logger   = logging.getLogger(__name__)
 
-# Token budget for document content injected into the generation prompt.
-# The full prompt template + instructions takes ~800 chars.
-# We leave the rest for the LLM's output (questions).
-# Groq llama-3.3-70b supports 128k context total.
-# We cap content at 12000 chars (~3000 tokens) so the model has
-# plenty of room to produce 30 questions without hitting output limits.
 _CONTENT_MAX_CHARS = 12_000
 
 _STOP_WORDS = {
@@ -39,6 +36,54 @@ _STOP_WORDS = {
     "about", "as", "your", "their", "its", "our", "my", "his", "her",
     "explain", "describe", "does", "role", "during", "formation",
 }
+
+# Letter labels for MCQ options in display order
+_LETTERS = ["A", "B", "C", "D"]
+
+
+def _shuffle_mcq_options(
+    options: list[MCQOption],
+    correct_index: int,
+) -> tuple[list[MCQOption], int]:
+    """
+    Shuffle the options list and return the new list + updated correctIndex.
+
+    Why this is necessary:
+      LLMs reliably write the correct answer as the first option (index 0 = A)
+      because it's the most natural thing to do — write the right answer,
+      then fill in distractors. "Distribute correct answers across positions"
+      in the prompt doesn't fix this — the model ignores it.
+
+      The fix is post-processing: shuffle the options in Python where randomness
+      is actually random, then re-assign letters and correctIndex.
+
+    Example:
+      Input:  options=[A_correct, B_wrong, C_wrong, D_wrong], correctIndex=0
+      Shuffle: [C_wrong, A_correct, D_wrong, B_wrong]
+      Output: options=[A(was C), B(was A/correct), C(was D), D(was B)], correctIndex=1
+    """
+    if not options or correct_index >= len(options):
+        return options, correct_index
+
+    # Remember which option is correct by reference (not index)
+    correct_option_text = options[correct_index].text
+
+    # Shuffle a copy so we don't mutate the input
+    shuffled = list(options)
+    random.shuffle(shuffled)
+
+    # Re-assign letter labels in display order (A, B, C, D)
+    reassigned = [
+        MCQOption(letter=_LETTERS[i], text=opt.text)
+        for i, opt in enumerate(shuffled)
+    ]
+
+    # Find the new index of the correct option
+    new_correct_index = next(
+        i for i, opt in enumerate(shuffled) if opt.text == correct_option_text
+    )
+
+    return reassigned, new_correct_index
 
 
 def generate_quiz(
@@ -81,14 +126,20 @@ def generate_quiz(
     for item in raw_questions[:count]:
         try:
             if question_type == "mcq":
+                raw_options = [
+                    MCQOption(letter=o["letter"], text=o["text"])
+                    for o in item.get("options", [])
+                ]
+                raw_correct = int(item.get("correctIndex", 0))
+
+                # Shuffle options so correct answer isn't always A
+                options, correct_index = _shuffle_mcq_options(raw_options, raw_correct)
+
                 questions.append(GeneratedQuestion(
                     id=item["id"],
                     text=item["text"],
-                    options=[
-                        MCQOption(letter=o["letter"], text=o["text"])
-                        for o in item.get("options", [])
-                    ],
-                    correctIndex=int(item.get("correctIndex", 0)),
+                    options=options,
+                    correctIndex=correct_index,
                 ))
             else:
                 questions.append(GeneratedQuestion(id=item["id"], text=item["text"]))
