@@ -417,14 +417,14 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
       addMessage({ role: 'user', content: '', modeChange: newMode });
       const colId = collectionIdRef.current;
 
-      if (newMode === 'compare' && selectedFiles.length !== 2) {
+      if ((newMode === 'compare' || newMode === 'resume') && selectedFiles.length !== 2) {
         const count = selectedFiles.length;
         addMessage({
           role: 'assistant',
           content:
             count < 2
-              ? `Compare Mode requires exactly **2 documents**, but you only have **${count}** selected. Please add another document and try again.`
-              : `Compare Mode requires exactly **2 documents**, but you have **${count}** selected. Please deselect some files, then try again.`,
+              ? `${newMode.charAt(0).toUpperCase() + newMode.slice(1)} Mode requires **2 documents**, ${newMode === 'resume' ? 'ie **resume** and **job description**,' : ''} but you only have **${count}**. Please add another document and try again.`
+              : `${newMode.charAt(0).toUpperCase() + newMode.slice(1)} Mode requires **2 documents**, but you have **${count}**. Please deselect some files, then try again.`,
         });
         return;
       }
