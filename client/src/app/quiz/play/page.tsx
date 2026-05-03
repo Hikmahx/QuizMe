@@ -60,7 +60,8 @@ export default function QuizPlayPage() {
     }
   }, [flow, router]);
 
-  // Fetch questions from backend via RAG
+  // Fetch questions from backend via RAG, with sessionStorage cache so
+  // reloading the page doesn't re-index and re-generate from scratch.
   useEffect(() => {
     if (!flow.hydrated) return;
     if (!flow.difficulty || !flow.questionCount || !flow.questionType) return;
@@ -68,20 +69,49 @@ export default function QuizPlayPage() {
 
     async function fetchQuestions() {
       try {
-        // Step 1: index documents → get collection_id
-        setLoadState('uploading');
-        if (!files || files.length === 0) {
-          throw new Error(
-            'No documents found. Please go back and upload your files first.',
+        // Step 1: resolve collection_id without re-uploading if possible
+        // The summary flow already indexed these files and stored the id.
+        // We only call uploadFiles if we have no stored id at all.
+        let collectionId: string | null = null;
+        try {
+          const stored = JSON.parse(
+            localStorage.getItem('quizme:summary-flow') ?? '{}',
           );
+          collectionId = stored.collectionId ?? null;
+        } catch {
+          /* ignore */
         }
 
-        const uploadResult = await uploadFiles(files);
-        const collectionId = uploadResult.collection_id;
+        if (!collectionId) {
+          setLoadState('uploading');
+          if (!files || files.length === 0) {
+            throw new Error(
+              'No documents found. Please go back and upload your files first.',
+            );
+          }
 
-        saveCollectionId(collectionId);
+          const uploadResult = await uploadFiles(files);
+          collectionId = uploadResult.collection_id;
+          saveCollectionId(collectionId);
+        }
 
-        // Step 2: generate questions from indexed documents
+        // Step 2: check sessionStorage cache
+        // Cache key encodes every parameter that affects the question set.
+        const cacheKey = `quizme:questions::${collectionId}::${flow.difficulty}::${flow.questionCount}::${flow.questionType}`;
+        const cached = sessionStorage.getItem(cacheKey);
+
+        if (cached) {
+          // Restore from cache — no LLM call needed
+          const qs: QuizQuestion[] = JSON.parse(cached);
+          setQuestions(qs);
+          setAnswers(
+            qs.map(() => ({ answer: null, submitted: false, correct: null })),
+          );
+          setLoadState('ready');
+          return;
+        }
+
+        // Step 3: generate questions from indexed documents
         setLoadState('generating');
         const qs = await generateQuizApi({
           collectionId,
@@ -89,6 +119,17 @@ export default function QuizPlayPage() {
           count: flow.questionCount!,
           questionType: flow.questionType!,
         });
+
+        // Persist to sessionStorage so reloads are instant
+        try {
+          sessionStorage.setItem(cacheKey, JSON.stringify(qs));
+        } catch {
+          /* quota */
+        }
+
+        // Also save current questions/type for the feedback page
+        sessionStorage.setItem('quizme:questions', JSON.stringify(qs));
+        sessionStorage.setItem('quizme:questionType', flow.questionType!);
 
         setQuestions(qs);
         setAnswers(
@@ -235,6 +276,10 @@ export default function QuizPlayPage() {
               The AI is reading your documents and crafting questions tailored
               to your content.
             </p>
+            <p className='text-app-text-secondary/50 text-xs leading-relaxed'>
+              This might take up to 30 seconds — feel free to switch tabs
+              and come back.
+            </p>
             <div className='flex flex-col gap-2 mt-2'>
               {steps.map((step) => {
                 const done = step === 'uploading' && loadState === 'generating';
@@ -279,6 +324,11 @@ export default function QuizPlayPage() {
               <p className='text-app-text font-medium text-base text-center'>
                 {statusLabel}
               </p>
+              {loadState === 'generating' && (
+                <p className='text-app-text-secondary/60 text-xs text-center'>
+                  This usually takes 15–30 seconds
+                </p>
+              )}
             </div>
           </div>
         </div>
