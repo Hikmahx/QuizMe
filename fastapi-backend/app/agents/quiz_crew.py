@@ -69,18 +69,23 @@ def run_batch_grade(items: list[dict]) -> list[dict]:
     prompt = f"""You are a fair quiz grader. Grade every question below and return a JSON array.
 
 GRADING RULES:
-1. Grade on UNDERSTANDING, not word-for-word matching. Paraphrasing = correct.
-2. MCQ: score_pct = 100 if student's selection matches correct answer, else 0.
-3. Theory: score 0-100 based on conceptual understanding.
+1. DETECT NONSENSE FIRST. If a theory answer is gibberish, random characters,
+   unrelated words, or clearly not an attempt (e.g. "Bjsisokk", "asdfgh", "lol"),
+   score_pct = 0, correct = false. No partial credit for nonsense.
+2. Grade genuine attempts on UNDERSTANDING, not word-for-word matching. Paraphrasing = correct.
+3. MCQ: score_pct = 100 if student's selection matches correct answer, else 0.
+4. Theory (genuine attempts only): score 0-100 based on conceptual understanding.
    - 85-100%: core concept correct and well-explained in own words
    - 65-84%:  core concept correct, could be more complete
    - 45-64%:  partially correct — got some ideas, missed key point
    - 20-44%:  shows some awareness but misunderstood main point
-   - 0-19%:   factually wrong or completely off-topic
-4. correct = true if score_pct >= 50.
-5. Theory explanations: start by acknowledging what the student got RIGHT.
-6. Never say an answer is "missing" or "not provided" — every question has an answer below.
-7. If the document context does not clearly relate to the question, use general knowledge.
+   - 0-19%:   factually wrong, completely off-topic, or gibberish/nonsense
+5. correct = true if score_pct >= 50.
+6. DO NOT quote or repeat the student's answer in your explanation — they can see it.
+7. Theory explanations: start by acknowledging what the student got RIGHT.
+   For gibberish: say "This answer does not address the question."
+8. Never say an answer is "missing" or "not provided" — every question has an answer below.
+9. If the document context does not clearly relate to the question, use general knowledge.
 
 QUESTIONS TO GRADE:
 {numbered_items}
