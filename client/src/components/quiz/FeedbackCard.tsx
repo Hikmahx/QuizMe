@@ -1,3 +1,7 @@
+import { useState } from 'react';
+
+const ANSWER_TRUNCATE_CHARS = 120;
+
 interface FeedbackCardProps {
   index: number;
   questionText: string;
@@ -7,6 +11,32 @@ interface FeedbackCardProps {
   tip: string;
   userAnswer?: string;
   isTheory?: boolean;
+}
+
+function TruncatedAnswer({ answer }: { answer: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const needsTruncation = answer.length > ANSWER_TRUNCATE_CHARS;
+  const display =
+    !expanded && needsTruncation
+      ? answer.slice(0, ANSWER_TRUNCATE_CHARS).trimEnd() + '…'
+      : answer;
+
+  return (
+    <div className='rounded-xl p-3'>
+      <p className='text-app-text-secondary text-xs font-medium mb-1'>
+        Your answer
+      </p>
+      <p className='text-app-text text-sm italic leading-relaxed'>{display}</p>
+      {needsTruncation && (
+        <button
+          onClick={() => setExpanded((e) => !e)}
+          className='text-xs text-primary mt-1 hover:underline'
+        >
+          {expanded ? 'Show less' : 'Show more'}
+        </button>
+      )}
+    </div>
+  );
 }
 
 export default function FeedbackCard({
@@ -66,14 +96,7 @@ export default function FeedbackCard({
           </div>
         </div>
 
-        {userAnswer && (
-          <div className='rounded-xl p-3'>
-            <p className='text-app-text-secondary text-xs font-medium mb-1'>
-              Your answer
-            </p>
-            <p className='text-app-text text-sm italic'>{userAnswer}</p>
-          </div>
-        )}
+        {userAnswer && <TruncatedAnswer answer={userAnswer} />}
 
         <div className='rounded-xl p-3'>
           <p

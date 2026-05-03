@@ -49,7 +49,7 @@ export default function DefaultResultPanel({ selectedFiles }: DefaultResultPanel
       </div>
 
       {/* Quick tips */}
-      <div className='mt-auto'>
+      <div>
         <p className='text-[10px] font-semibold uppercase tracking-widest text-app-text-secondary mb-2'>
           Tips
         </p>
