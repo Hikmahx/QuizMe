@@ -21,7 +21,7 @@ export default function QuizCTA({ variant = 'full' }: QuizCTAProps) {
   if (variant === 'compact') {
     return (
       <button
-        className=' bg-[#334f56] border border-green-400/25 rounded-2xl p-5 flex justify-between gap-4 hover:bg-green-400/30 cursor-pointer transition-colors'
+        className='bg-green-400/10 border border-green-400/25 rounded-2xl p-5 flex justify-between gap-4 hover:bg-green-400/30 cursor-pointer transition-colors'
         onClick={handleQuiz}
       >
         <div className='flex items-center gap-3'>

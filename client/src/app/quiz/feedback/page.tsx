@@ -148,7 +148,7 @@ export default function QuizFeedbackPage() {
                     </p>
                     <p className='text-app-text-secondary text-sm'>
                       AI is evaluating your answers — this may take
-                      10–20 seconds
+                      15–90 seconds
                     </p>
                   </>
                 ) : (

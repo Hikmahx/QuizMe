@@ -19,7 +19,7 @@ export default function LoadingPanel() {
       </div>
 
       <p className='text-app-text-secondary/50 text-xs text-center -mt-2'>
-        This might take 15–30 seconds
+        This might take 15–90 seconds
       </p>
 
       <div className='flex flex-col gap-3 w-full'>

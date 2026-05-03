@@ -163,7 +163,7 @@ export default function QuizReadyPage() {
                     Questions will be generated from your documents at{' '}
                     <strong className='text-app-text'>{flow.difficulty}</strong>{' '}
                     difficulty. Answers are also graded by the AI against your
-                    documents. Expect 15–30 seconds on the first load.
+                    documents. Expect 15–90 seconds on the first load.
                   </p>
                 </div>
               )}

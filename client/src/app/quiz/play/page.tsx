@@ -277,8 +277,7 @@ export default function QuizPlayPage() {
               to your content.
             </p>
             <p className='text-app-text-secondary/50 text-xs leading-relaxed'>
-              This might take up to 30 seconds — feel free to switch tabs
-              and come back.
+              This might a while
             </p>
             <div className='flex flex-col gap-2 mt-2'>
               {steps.map((step) => {
@@ -326,7 +325,7 @@ export default function QuizPlayPage() {
               </p>
               {loadState === 'generating' && (
                 <p className='text-app-text-secondary/60 text-xs text-center'>
-                  This usually takes 15–30 seconds
+                  This usually takes 15–90 seconds
                 </p>
               )}
             </div>
