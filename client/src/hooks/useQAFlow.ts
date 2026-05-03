@@ -274,7 +274,7 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
   const abortRef = useRef<AbortController | null>(null);
   // Stores the resolved collectionId for use inside async callbacks
   const collectionIdRef = useRef<string>('');
-  // Keep a live ref to selectedFiles for use inside initChat without stale closure
+  // Keep a live ref to selectedFiles for use inside initChat AND sendMessage without stale closure
   const selectedFilesRef = useRef<StoredFileMeta[]>(selectedFiles);
   useEffect(() => {
     selectedFilesRef.current = selectedFiles;
@@ -687,11 +687,13 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
       // streamIntoMessage handles its own error state — it always resolves
       // the loading bubble before re-throwing. Catch here only to silence
       // AbortError; all other errors are already visible in the chat.
+      // Always read from the ref so we get the latest file selection even if
+      // the sendMessage closure was captured before the user changed files.
       try {
         await streamIntoMessage(
           assistantId,
           mode,
-          selectedFiles,
+          selectedFilesRef.current,
           history,
           collectionIdRef.current,
         );
@@ -703,7 +705,6 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
     },
     [
       mode,
-      selectedFiles,
       messages,
       isStreaming,
       isAnalysing,
@@ -714,14 +715,16 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
 
   // Initial chat
 
-  const initChat = useCallback(async () => {
+  const initChat = useCallback(async (filesOverride?: StoredFileMeta[]) => {
     // Ref-based guard — the messages.length check is unreliable because
     // initChat captures a stale closure where messages is always [].
     if (initDone.current) return;
     initDone.current = true;
 
     // Always read the live selection from the ref, not a stale closure value.
-    const currentFiles = selectedFilesRef.current;
+    // If the caller passes filesOverride (e.g. from the hydration effect), use
+    // that directly — it is guaranteed to be up-to-date regardless of ref timing.
+    const currentFiles = filesOverride ?? selectedFilesRef.current;
 
     const MODE_GREETINGS: Record<QAMode, string> = {
       default: "I've reviewed your documents. What would you like to know?",

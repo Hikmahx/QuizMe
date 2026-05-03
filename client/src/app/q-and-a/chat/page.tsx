@@ -58,9 +58,11 @@ function QAChatInner() {
 
   // Wait for hydration so files are loaded before initChat runs.
   // This prevents: double-greeting, 0/N files, and failed auto-detection.
+  // Pass `files` directly so initChat never has to rely on a ref that may lag
+  // behind the synchronous state update done during render.
   useEffect(() => {
     if (hydrated && files.length > 0) {
-      initChat();
+      initChat(files);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hydrated]);
