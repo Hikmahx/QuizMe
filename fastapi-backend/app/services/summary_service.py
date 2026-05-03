@@ -114,11 +114,15 @@ def generate_summary(files: list[FilePayload], length: str, style: str) -> dict:
     if not all_chunks:
         raise ValueError("No content found. Please re-upload your files.")
 
+    # Track whether combined fell back — this is what drives the "unrelated docs" banner.
+    fell_back_from_combined = False
+
     # Combined mode
     if style == "combined" and len(files) > 1:
-        summary_text, fallback = _summarise_combined(all_chunks, length)
-        if fallback:
-            style = "doc-by-doc"  # fall through to doc-by-doc below
+        summary_text, fallback_triggered = _summarise_combined(all_chunks, length)
+        if fallback_triggered:
+            style = "doc-by-doc"
+            fell_back_from_combined = True  # mark so the frontend shows the notice
         else:
             return {
                 "collection_id": collection_id,
@@ -127,7 +131,7 @@ def generate_summary(files: list[FilePayload], length: str, style: str) -> dict:
                 "fallback": False,
             }
 
-    # Doc-by-doc mode (and fallback from combined)
+    # Doc-by-doc mode (deliberate or fallback from combined)
     if style in ("doc-by-doc", "default") or len(files) == 1:
 
         chunks_by_doc: dict[str, list[dict]] = {}
@@ -146,7 +150,8 @@ def generate_summary(files: list[FilePayload], length: str, style: str) -> dict:
             "collection_id": collection_id,
             "style": "doc-by-doc" if len(files) > 1 else "default",
             "summaries": summaries,
-            "fallback": (style == "doc-by-doc"),
+            # Only True when combined was requested but fell back — never for a deliberate choice
+            "fallback": fell_back_from_combined,
         }
 
     raise ValueError(f"Unknown summary style: {style}")
