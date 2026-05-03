@@ -106,13 +106,17 @@ function saveSelectedFileNames(names: string[]) {
 // API helpers
 
 /**
- * Ensure a collection_id exists for the uploaded files.
- * If the user went through the summary flow first, collection_id is already in localStorage.
- * If not (user opened Q&A directly), we call POST /api/upload/ to index the files.
+ * Always re-index files and get a fresh collection_id for the current session.
+ * We cannot reuse a stored collection_id (ie exisiting (commented out)) because:
+ *   1. The user may have uploaded different files than the previous session.
+ *   2. The backend collection may have expired or been evicted.
+ * A stored collection_id from the summary flow is only valid if the files are
+ * identical — which we cannot guarantee across page loads. Always re-uploading
+ * is the only safe way to ensure the RAG context matches what the user sees.
  */
 async function ensureCollectionId(files: StoredFileMeta[]): Promise<string> {
-  const existing = getStoredCollectionId();
-  if (existing) return existing;
+  // const existing = getStoredCollectionId();
+  // if (existing) return existing;
 
   const data = await uploadFiles(files);
   const id = data.collection_id;
@@ -260,7 +264,7 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
   const [isAnalysing, setIsAnalysing] = useState(false);
   // Max 4 screens: [0] = landing, [1-3] = one per non-default mode
   const [leftScreens, setLeftScreens] = useState<LeftPanelScreen[]>([
-    { id: screenUid(), type: 'info', mode: initialMode, label: 'Overview' },
+    { id: screenUid(), type: initialMode === 'default' ? 'default-result' : 'info', mode: initialMode, label: 'Overview' },
   ]);
   const [currentScreenIndex, setCurrentScreenIndex] = useState(0);
 
@@ -419,17 +423,26 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
 
       if ((newMode === 'compare' || newMode === 'resume') && selectedFiles.length !== 2) {
         const count = selectedFiles.length;
+        const modeLabel = newMode.charAt(0).toUpperCase() + newMode.slice(1);
         addMessage({
           role: 'assistant',
           content:
             count < 2
-              ? `${newMode.charAt(0).toUpperCase() + newMode.slice(1)} Mode requires **2 documents**, ${newMode === 'resume' ? 'ie **resume** and **job description**,' : ''} but you only have **${count}**. Please add another document and try again.`
-              : `${newMode.charAt(0).toUpperCase() + newMode.slice(1)} Mode requires **2 documents**, but you have **${count}**. Please deselect some files, then try again.`,
+              ? newMode === 'resume'
+                ? `**Resume Mode** requires **2 documents** — a **resume** and a **job description**. You only have **${count}** selected. Please add your ${count === 0 ? 'resume and job description' : 'job description'} and try again.`
+                : `**Compare Mode** requires exactly **2 documents**, but you only have **${count}** selected. Please add another document and try again.`
+              : `**${modeLabel} Mode** requires exactly **2 documents**, but you have **${count}**. Please deselect some files, then try again.`,
         });
         return;
       }
 
       if (newMode === 'default') {
+        // Update the first screen to show DefaultResultPanel instead of empty InfoPanel
+        setLeftScreens((prev) =>
+          prev.map((s, i) =>
+            i === 0 ? { ...s, type: 'default-result' as const } : s,
+          ),
+        );
         setCurrentScreenIndex(0);
         await greetForMode(
           newMode,
@@ -762,6 +775,24 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
       } catch {
         /* detection failed silently — proceed normally */
       }
+    }
+
+    // Step 2b: resume/compare require exactly 2 files — show a clear message immediately,
+    // mirroring the Compare Mode behaviour that already exists in changeMode.
+    if ((mode === 'resume' || mode === 'compare') && currentFiles.length !== 2) {
+      const count = currentFiles.length;
+      const modeLabel = mode.charAt(0).toUpperCase() + mode.slice(1);
+      addMessage({
+        role: 'assistant',
+        content:
+          count < 2
+            ? mode === 'resume'
+              ? `**Resume Mode** needs **2 documents** — a **resume** and a **job description**. You only have **${count}** document uploaded. Please go back, add your ${count === 0 ? 'resume and job description' : 'job description'}, and try again.`
+              : `**Compare Mode** requires exactly **2 documents**, but you only have **${count}** selected. Please add another document and try again.`
+            : `**${modeLabel} Mode** requires exactly **2 documents**, but you have **${count}** selected. Please deselect some files, then try again.`,
+        modeSuggestions: (['default', 'glossary'] as QAMode[]),
+      });
+      return;
     }
 
     // Step 3: for non-default initial modes, run analysis first

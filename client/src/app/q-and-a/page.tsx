@@ -161,7 +161,7 @@ export default function QAndAModePage() {
         }
         right={
           <div className='dark-bg rounded-2xl flex flex-col lg:max-h-[calc(100vh-200px)]'>
-            <div className='flex-1 overflow-y-auto p-5 flex flex-col gap-3'>
+            <div className='lg:flex-1 lg:overflow-y-auto p-5 flex flex-col gap-3'>
               {MODES.map((m) => (
                 <OptionCard
                   key={m.mode}

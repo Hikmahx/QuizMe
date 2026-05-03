@@ -181,7 +181,13 @@ export default function ViewSummaryOptionsPage() {
   return (
     <div className='relative z-10 flex flex-col min-h-screen animate-fade-in'>
       <Header />
-      <Suspense>
+      <Suspense
+        fallback={
+          <div className='flex items-center justify-center flex-1'>
+            <div className='w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin' />
+          </div>
+        }
+      >
         <OptionsInner />
       </Suspense>
     </div>
