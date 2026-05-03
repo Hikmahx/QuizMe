@@ -56,8 +56,6 @@ export default function QuizFeedbackPage() {
 
     const collectionId = getStoredCollectionId();
 
-
-    // Rebuild properly using questions + answers
     const correctPayloads = parsedQuestions.map((q, i) => {
       const ans = parsedAnswers[i];
 
@@ -103,7 +101,7 @@ export default function QuizFeedbackPage() {
   const correctCount = feedbacks.filter((f) => f?.correct).length;
 
   return (
-    <div className='h-screen flex flex-col overflow-hidden'>
+    <div className='flex flex-col min-h-screen lg:h-screen lg:overflow-hidden'>
       <div className='flex-shrink-0'>
         <Header />
         <Breadcrumb
@@ -115,10 +113,11 @@ export default function QuizFeedbackPage() {
         />
       </div>
 
-      <div className='flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-2 px-6 md:px-12 max-w-[1200px] mx-auto w-full'>
+      <div className='flex-1 lg:min-h-0 grid grid-cols-1 lg:grid-cols-2 px-6 md:px-12 max-w-[1200px] mx-auto w-full gap-0'>
         {/* LEFT */}
-        <div className='lg:pr-16 flex flex-col min-h-0 py-6'>
-          <div className='flex-1 overflow-y-auto min-h-0 pr-1'>
+        <div className='lg:pr-16 flex flex-col lg:min-h-0 py-6'>
+          {/* On mobile: static content, no inner scroll */}
+          <div className='lg:flex-1 lg:overflow-y-auto lg:min-h-0 lg:pr-1'>
             <span className='inline-flex items-center gap-2 bg-primary/15 border border-primary/30 rounded-full px-4 py-1.5 text-sm text-primary font-medium mb-6'>
               <span className='w-1.5 h-1.5 rounded-full bg-primary' />
               AI Feedback
@@ -169,7 +168,8 @@ export default function QuizFeedbackPage() {
             </div>
           </div>
 
-          <div className='flex-shrink-0 pt-4 border-t border-app-text/10 flex flex-col gap-3'>
+          {/* Action buttons — on mobile: static below content; desktop: pinned to bottom */}
+          <div className='pt-4 border-t border-app-text/10 flex flex-col gap-3 mt-4 lg:mt-0 lg:flex-shrink-0'>
             <button
               onClick={() => {
                 sessionStorage.removeItem('quizme:answers');
@@ -191,12 +191,13 @@ export default function QuizFeedbackPage() {
         </div>
 
         {/* RIGHT — feedback cards */}
-        <div className='flex flex-col min-h-0 py-6'>
+        <div className='flex flex-col lg:min-h-0 py-6'>
           <p className='text-app-text-secondary text-xs font-medium uppercase tracking-wide mb-4 flex-shrink-0'>
             {questions.length} question{questions.length !== 1 ? 's' : ''}
           </p>
 
-          <div className='flex-1 overflow-y-auto min-h-0 flex flex-col gap-4 pr-1'>
+          {/* On mobile: static list, page scrolls. On desktop: contained scroll */}
+          <div className='lg:flex-1 lg:overflow-y-auto lg:min-h-0 flex flex-col gap-4 lg:pr-1'>
             {evaluating ? (
               <div className='flex flex-col items-center justify-center h-40 gap-4'>
                 <div className='w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin' />
@@ -233,7 +234,7 @@ export default function QuizFeedbackPage() {
             )}
           </div>
 
-          <div className='flex-shrink-0 pt-4 border-t border-app-text/10'>
+          <div className='pt-4 border-t border-app-text/10 mt-4 lg:mt-0 lg:flex-shrink-0'>
             <button
               onClick={() => router.push('/quiz/score')}
               className='w-full border border-app-text/20 text-app-text-secondary text-sm rounded-2xl py-3 hover:bg-app-card hover:border-app-text/40 hover:text-app-text transition-all'

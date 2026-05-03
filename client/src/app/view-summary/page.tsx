@@ -252,18 +252,10 @@ export default function ViewSummaryPage() {
           onClick={handleUploadDifferent}
           className='w-full flex items-center justify-center gap-2 border border-app-text-secondary/20 rounded-xl py-3 text-app-text-secondary text-sm hover:bg-app-text-secondary/7 hover:border-app-text-secondary/40 hover:text-app-text transition-all'
         >
-          <svg
-            width='14'
-            height='14'
-            viewBox='0 0 24 24'
-            fill='none'
-            stroke='currentColor'
-            strokeWidth='2'
-            strokeLinecap='round'
-          >
-            <polyline points='1 4 1 10 7 10' />
-            <path d='M3.51 15a9 9 0 1 0 .49-3.36' />
-          </svg>
+          <ion-icon
+            name='refresh-outline'
+            style={{ fontSize: '14px' }}
+          />
           Use different files
         </button>
       </div>

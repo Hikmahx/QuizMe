@@ -33,13 +33,12 @@ type MobileTab = 'context' | 'chat';
 function QAChatInner() {
   const params = useSearchParams();
   const rawMode = params.get('mode') ?? 'default';
-  const initialMode: QAMode = (
+  const initialMode = (
     ['default', 'resume', 'compare', 'glossary'] as QAMode[]
   ).includes(rawMode as QAMode)
     ? (rawMode as QAMode)
     : 'default';
 
-  // hydrated = true once localStorage files have been loaded
   const { files, hydrated } = useSummaryFlow();
   const [mobileTab, setMobileTab] = useState<MobileTab>('context');
 
@@ -172,23 +171,15 @@ function QAChatInner() {
                 : 'bg-app-card border-app-text-secondary/15 text-app-text-secondary hover:text-app-text',
             ].join(' ')}
           >
-            {tab === 'chat' ? (
-              <>
-                <ion-icon
-                  name='chatbubble-ellipses-outline'
-                  style={{ fontSize: '14px' }}
-                />{' '}
-                Chat
-              </>
-            ) : (
-              <>
-                <ion-icon
-                  name='document-text-outline'
-                  style={{ fontSize: '14px' }}
-                />{' '}
-                Context
-              </>
-            )}{' '}
+            <ion-icon
+              name={
+                tab === 'chat'
+                  ? 'chatbubble-ellipses-outline'
+                  : 'document-text-outline'
+              }
+              style={{ fontSize: '14px' }}
+            />{' '}
+            {tab === 'chat' ? 'Chat' : 'Context'}
           </button>
         ))}
       </div>
