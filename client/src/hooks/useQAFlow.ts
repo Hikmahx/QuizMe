@@ -247,14 +247,15 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
     let resolved: StoredFileMeta[];
     if (storedNames && storedNames.length > 0) {
       const fromStore = allFiles.filter((f) => storedNames.includes(f.name));
-      resolved = fromStore.length > 0 ? fromStore : allFiles;
+      // Only restore stored selection if EVERY stored name is still present.
+      // If files were added or removed since the names were saved, fall back to
+      // selecting all current files so new uploads are never silently excluded.
+      resolved = fromStore.length === storedNames.length ? fromStore : allFiles;
     } else {
       resolved = allFiles;
-      // Persist the default (all files) so future reloads remember it
-      saveSelectedFileNames(allFiles.map((f) => f.name));
     }
-    // Synchronously set state during render — safe because filesInitialised
-    // ensures this only runs once, before the component has painted with files.
+    // Always persist the resolved selection so it stays in sync with allFiles.
+    saveSelectedFileNames(resolved.map((f) => f.name));
     setSelectedFiles(resolved);
   }
 
