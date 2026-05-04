@@ -2,6 +2,26 @@
 
 QuizMe is an AI-powered web application that transforms documents into interactive learning experiences. Users upload one or more documents and instantly generate summaries, ask questions across four intelligent modes, and take AI-generated quizzes to deepen their understanding.
 
+![QuizMe Home](./client/public/readme/quizme.png)
+
+---
+
+## Table of Contents
+
+- [Application Flow](#application-flow)
+- [Features](#features)
+  - [Document Upload](#document-upload--shared-across-all-features)
+  - [1. View Summary](#1-view-summary)
+  - [2. Ask Questions](#2-ask-questions)
+  - [3. Quiz Time!](#3-quiz-time)
+  - [Quiz CTA](#quiz-cta--appears-on-every-feature-page)
+- [Planned Features](#planned-features-later)
+- [Tech Stack](#tech-stack)
+- [AI Concepts Implemented](#ai-concepts-implemented)
+- [Architecture](#architecture)
+- [UI Design](#ui-design)
+- [Setup](#setup)
+
 ---
 
 ## Application Flow
@@ -27,6 +47,8 @@ Quiz CTA available on every result page
 ### Document Upload — Shared Across All Features
 
 **Step 1 of 3** for every feature. Supports two input methods:
+
+![Upload Step](./client/public/readme/quizme-uploaded.png)
 
 #### Upload a file
 
@@ -65,7 +87,11 @@ Quiz CTA available on every result page
 
 #### Summary length: Short · Medium · Long
 
+![Summary Length](./client/public/readme/quizme-uploaded.png)
+
 #### Summary view _(only shown when multiple documents are uploaded)_:
+
+![Summary Style](./client/public/readme/quizme-length.png)
 
 - **Default** - single page summary
 - **Combined** — One unified summary across all documents
@@ -74,6 +100,10 @@ Quiz CTA available on every result page
 - Quiz CTA in left column after result
 - "Use different files" button clears state and returns to upload
 
+| Combined | Doc-by-doc |
+|---|---|
+| ![Combined Summary](./client/public/readme/quizme-combined.png) | ![Doc-by-doc Summary](./client/public/readme/quizme-doc-by-doc.png) |
+
 ---
 
 ### 2. Ask Questions
@@ -81,6 +111,8 @@ Quiz CTA available on every result page
 **Flow:** `Upload (Step 1)` → `Choose Mode (Step 2)` → `Chat (Step 3)`
 
 #### Mode Selection:
+
+![Choose Mode](./client/public/readme/quizme-mode.png)
 
 - **Default Q&A** - Ask anything grounded in document content
 - **Resume Mode** - Skill gap analysis, resume rewrites, cover letter drafts
@@ -108,6 +140,10 @@ Quiz CTA available on every result page
 | `CompareTablePanel`  | Compare mode — sticky-header table, one column per file                |
 | `GlossaryPanel`      | Glossary mode — search + horizontal alphabet bar + collapsible entries |
 | `DefaultResultPanel` | Default mode — active file list + tips                                 |
+
+| Resume Mode | Compare Mode | Glossary Mode |
+|---|---|---|
+| ![Resume Mode](./client/public/readme/quizme-resume.png) | ![Compare Mode](./client/public/readme/quizme-compare.png) | ![Glossary Mode](./client/public/readme/quizme-glossary.png) |
 
 - Screens: landing (always screen 0) + one per non-default mode = max 4 total
 - Switching to a mode that already has a screen updates it in place — **no duplicate screens**
@@ -145,6 +181,9 @@ To switch to FastAPI: update the two `fetch('/api/...')` calls in `hooks/useQAFl
 
 - **Difficulty** — Easy · Medium · Hard
 - **Number of questions** — 10 · 20 · 30
+
+![Quiz Count](./client/public/readme/quizme-how-many-questions.png)
+
 - **Question type:**
   - **MCQ** — pick the correct answer from four options
   - **Theory** — open-ended; triggers one more step
@@ -172,6 +211,8 @@ When documents have been uploaded and processed, the Quiz Generator Agent genera
 - **Oral** — waveform panel + manual Record / Stop buttons. See oral flow below.
 
 #### Oral answer flow (Voice RAG Agent):
+
+![Oral Quiz](./client/public/readme/quizme-oral.png)
 
 1. AI reads the question aloud via backend TTS (CartesiaAI or Edge TTS fallback)
 2. **"Tap Record when you're ready"** prompt — user controls when to start
