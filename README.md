@@ -1,6 +1,6 @@
 # QuizMe — AI-Powered Document Learning Platform
 
-QuizMe is an AI-powered web application that transforms documents into interactive learning experiences. Users upload one or more documents and instantly generate summaries, ask questions across four intelligent modes, and take AI-generated quizzes to deepen their understanding.
+QuizMe is an AI-powered web application that transforms any kind of documents into interactive learning experiences. Users upload one or more documents and instantly generate summaries, ask questions across four intelligent modes, and take AI-generated quizzes to deepen their understanding.
 
 ![QuizMe Home](./client/public/readme/quizme.png)
 
@@ -87,23 +87,18 @@ Quiz CTA available on every result page
 
 #### Summary length: Short · Medium · Long
 
-![Summary Length](./client/public/readme/quizme-uploaded.png)
+![Summary Length](./client/public/readme/quizme-length.png)
 
 #### Summary view _(only shown when multiple documents are uploaded)_:
 
-![Summary Style](./client/public/readme/quizme-length.png)
-
 - **Default** - single page summary
 - **Combined** — One unified summary across all documents
+ ![Combined Summary](./client/public/readme/quizme-combined.png) 
   - If the AI detects the documents are unrelated, it alerts the user and automatically falls back to Doc-by-doc view
 - **Doc-by-doc** — Browse each document's summary separately using ← / → navigation, with the document name shown per page
+  ![Doc-by-doc Summary](./client/public/readme/quizme-doc-by-doc.png)
 - Quiz CTA in left column after result
 - "Use different files" button clears state and returns to upload
-
-| Combined | Doc-by-doc |
-|---|---|
-| ![Combined Summary](./client/public/readme/quizme-combined.png) | ![Doc-by-doc Summary](./client/public/readme/quizme-doc-by-doc.png) |
-
 ---
 
 ### 2. Ask Questions
@@ -115,9 +110,11 @@ Quiz CTA available on every result page
 ![Choose Mode](./client/public/readme/quizme-mode.png)
 
 - **Default Q&A** - Ask anything grounded in document content
-- **Resume Mode** - Skill gap analysis, resume rewrites, cover letter drafts
+- **Resume Mode** - Skill gap analysis, resume rewrites, cover letter drafts![Resume Mode](./client/public/readme/quizme-resume.png)
 - **Compare Mode** - Side-by-side structured breakdown of 2+ documents
+![Compare Mode](./client/public/readme/quizme-compare.png)
 - **Glossary Mode** - Extract and define all technical terms
+![Glossary Mode](./client/public/readme/quizme-glossary.png)
 
 #### Chat (`/q-and-a/chat?mode=[mode]`):
 
@@ -140,10 +137,6 @@ Quiz CTA available on every result page
 | `CompareTablePanel`  | Compare mode — sticky-header table, one column per file                |
 | `GlossaryPanel`      | Glossary mode — search + horizontal alphabet bar + collapsible entries |
 | `DefaultResultPanel` | Default mode — active file list + tips                                 |
-
-| Resume Mode | Compare Mode | Glossary Mode |
-|---|---|---|
-| ![Resume Mode](./client/public/readme/quizme-resume.png) | ![Compare Mode](./client/public/readme/quizme-compare.png) | ![Glossary Mode](./client/public/readme/quizme-glossary.png) |
 
 - Screens: landing (always screen 0) + one per non-default mode = max 4 total
 - Switching to a mode that already has a screen updates it in place — **no duplicate screens**
