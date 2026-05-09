@@ -69,31 +69,23 @@ export default function QuizPlayPage() {
 
     async function fetchQuestions() {
       try {
-        // Step 1: resolve collection_id without re-uploading if possible
-        // The summary flow already indexed these files and stored the id.
-        // We only call uploadFiles if we have no stored id at all.
-        let collectionId: string | null = null;
-        try {
-          const stored = JSON.parse(
-            localStorage.getItem('quizme:summary-flow') ?? '{}',
+        // Step 1: always call uploadFiles to get a valid collection_id.
+        // uploadFiles → POST /api/upload/ → index_files() which is idempotent:
+        // if the files were already indexed (e.g. by the summary flow) it just
+        // resets the TTL and returns the same collection_id in milliseconds.
+        // This is simpler and more reliable than trying to reuse a stored id,
+        // which can be stale, missing, or from a different upload session.
+        setLoadState('uploading');
+
+        if (!files || files.length === 0) {
+          throw new Error(
+            'No documents found. Please go back and upload your files first.',
           );
-          collectionId = stored.collectionId ?? null;
-        } catch {
-          /* ignore */
         }
 
-        if (!collectionId) {
-          setLoadState('uploading');
-          if (!files || files.length === 0) {
-            throw new Error(
-              'No documents found. Please go back and upload your files first.',
-            );
-          }
-
-          const uploadResult = await uploadFiles(files);
-          collectionId = uploadResult.collection_id;
-          saveCollectionId(collectionId);
-        }
+        const uploadResult = await uploadFiles(files);
+        const collectionId = uploadResult.collection_id;
+        saveCollectionId(collectionId);
 
         // Step 2: check sessionStorage cache
         // Cache key encodes every parameter that affects the question set.

@@ -104,6 +104,19 @@ def generate_quiz(
         top_k=settings.RETRIEVAL_TOP_K_BROAD,
     )
 
+    # ivfflat similarity search silently returns nothing when the collection
+    # has fewer rows than the index's `lists` parameter (default 100 lists
+    # needs ~3900 rows). Small documents like a short .txt file hit this.
+    # Fall back to retrieving all chunks directly — no similarity needed.
+    if not content:
+        logger.info(
+            "Similarity search returned nothing for %s — "
+            "falling back to full collection retrieval (small document).",
+            collection_id,
+        )
+        from app.rag.retriever import build_all_context
+        content = build_all_context(collection_id)
+
     if not content:
         raise ValueError(
             "No content found for this collection. "
