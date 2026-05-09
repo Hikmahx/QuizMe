@@ -12,7 +12,7 @@ settings = get_settings()
 
 
 def make_collection_id(files: list[dict]) -> str:
-    raw = "".join(file["name"] + str(len(file["dataUrl"])) for file in files)
+    raw = "".join(file["name"] + file["dataUrl"] for file in files) # concatenate all file names and data URLs, collisions between user data practically impossible
     return hashlib.md5(raw.encode()).hexdigest()[:16]
 
 
