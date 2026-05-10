@@ -51,12 +51,12 @@ Quiz CTA available on every result page
 ![Upload Step](./client/public/readme/quizme-uploaded.png)
 
 #### Upload a file
-
 - Drag-and-drop or file browser
-- Accepted: **PDF · DOCX · TXT** — up to 20 MB each, up to 10 documents per session
+- Accepted: **PDF · DOCX · TXT** — up to 20 MB each, up to 2 documents per session
 - File metadata + base64 `dataUrl` stored in `localStorage` under `quizme:summary-flow`
 
 #### Paste text
+![Upload Step](./client/public/readme/quizme-upload.png)
 
 - Available on the initial screen when **no files have been added yet**
 - Up to **2,000 words** with live word counter
