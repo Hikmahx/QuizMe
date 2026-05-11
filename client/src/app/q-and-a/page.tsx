@@ -44,7 +44,7 @@ const MODES: ModeOption[] = [
   },
   {
     mode: 'compare',
-    icon: 'git-compare-outline',
+    icon: 'grid-outline',
     iconBg: 'bg-blue-400/15',
     iconColor: 'text-blue-400',
     label: 'Compare Mode',
