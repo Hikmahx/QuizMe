@@ -36,7 +36,7 @@ const MODE_COLOURS: Record<QAMode, string> = {
 const MODE_ICONS: Record<QAMode, string> = {
   default: 'chatbubble-ellipses-outline',
   resume: 'document-text-outline',
-  compare: 'git-compare-outline',
+  compare: 'grid-outline',
   glossary: 'book-outline',
 };
 
