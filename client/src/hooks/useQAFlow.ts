@@ -264,8 +264,19 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
   const [isStreaming, setIsStreaming] = useState(false);
   const [isAnalysing, setIsAnalysing] = useState(false);
   // Max 4 screens: [0] = landing, [1-3] = one per non-default mode
+  // Use the correct type for the initial screen so findModeScreenIdx can locate it later.
+  const initialScreenType: LeftPanelScreen['type'] =
+    initialMode === 'default'
+      ? 'default-result'
+      : initialMode === 'resume'
+        ? 'analysis-steps'
+        : initialMode === 'compare'
+          ? 'compare-table'
+          : initialMode === 'glossary'
+            ? 'glossary'
+            : 'info';
   const [leftScreens, setLeftScreens] = useState<LeftPanelScreen[]>([
-    { id: screenUid(), type: initialMode === 'default' ? 'default-result' : 'info', mode: initialMode, label: 'Overview' },
+    { id: screenUid(), type: initialScreenType, mode: initialMode, label: 'Overview' },
   ]);
   const [currentScreenIndex, setCurrentScreenIndex] = useState(0);
 
@@ -472,9 +483,7 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
       try {
         const analysis = await fetchAnalyze(colId, newMode, selectedFiles);
 
-        // Mismatch only applies to resume and compare.
-        // Glossary and default work with any document — never block them.
-        if (analysis.mismatch && (newMode === 'resume' || newMode === 'compare')) {
+        if (analysis.mismatch) {
           if (existingIdx === -1) setCurrentScreenIndex(0);
           addMessage({
             role: 'assistant',
@@ -807,9 +816,7 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
       try {
         const analysis = await fetchAnalyze(colId, mode, currentFiles);
 
-        // Mismatch only applies to resume and compare.
-        // Glossary and default work with any document — never block them.
-        if (analysis.mismatch && (mode === 'resume' || mode === 'compare')) {
+        if (analysis.mismatch) {
           setIsAnalysing(false);
           addMessage({
             role: 'assistant',
@@ -824,15 +831,27 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
         }
 
         const patch = buildScreenPatch(mode, analysis, currentFiles);
-        const newScreen: LeftPanelScreen = {
-          id: screenUid(),
-          type: 'info',
-          mode,
-          label: 'Overview',
-          ...patch,
-        };
-        setLeftScreens((prev) => [...prev, newScreen]);
-        setCurrentScreenIndex((prev) => prev + 1);
+        // Patch the existing screen if one for this mode already exists (e.g. initialMode === mode),
+        // otherwise push a new one. This prevents duplicate screens on re-click.
+        const existingInitIdx = findModeScreenIdx(leftScreens, mode);
+        if (existingInitIdx !== -1) {
+          setLeftScreens((prev) =>
+            prev.map((s, i) =>
+              i === existingInitIdx ? { ...s, mode, ...patch } : s,
+            ),
+          );
+          setCurrentScreenIndex(existingInitIdx);
+        } else {
+          const newScreen: LeftPanelScreen = {
+            id: screenUid(),
+            type: 'info',
+            mode,
+            label: 'Overview',
+            ...patch,
+          };
+          setLeftScreens((prev) => [...prev, newScreen]);
+          setCurrentScreenIndex((prev) => prev + 1);
+        }
       } catch {
         /* silent — greet anyway */
       } finally {
