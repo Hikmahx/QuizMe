@@ -483,7 +483,7 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
       try {
         const analysis = await fetchAnalyze(colId, newMode, selectedFiles);
 
-        if (analysis.mismatch) {
+        if (analysis.mismatch && (newMode === 'resume' || newMode === 'compare')) {
           if (existingIdx === -1) setCurrentScreenIndex(0);
           addMessage({
             role: 'assistant',
@@ -816,7 +816,9 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
       try {
         const analysis = await fetchAnalyze(colId, mode, currentFiles);
 
-        if (analysis.mismatch) {
+        // Mismatch only applies to resume and compare.        
+        // Glossary and default work with any document — never block them.
+        if (analysis.mismatch && (mode === 'resume' || mode === 'compare')) {
           setIsAnalysing(false);
           addMessage({
             role: 'assistant',
