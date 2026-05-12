@@ -8,7 +8,6 @@ from app.utils.text import extract_json
 settings = get_settings()
 logger = logging.getLogger(__name__)
 
-
 # Helpers
 
 # Limit context size to avoid token overflow and keep LLM responses fast/cost-efficient
@@ -201,12 +200,15 @@ If these documents are clearly NOT a resume/JD pair:
 DOCUMENTS:
 {context}"""
 
-    return _call_analyze(prompt)
+    result = _call_analyze(prompt)
+    if "analysisSteps" not in result:
+        result["analysisSteps"] = []
+    return result
 
 
 def _analyze_compare(context: str, file_names: list[str]) -> dict:
     files_str = " vs ".join(file_names) if file_names else "Document 1 vs Document 2"
-    n_docs    = max(len(file_names), 2)
+    n_docs = max(len(file_names), 2)
     # Build the values array template dynamically for n documents
     val_template = ",".join([f'"<value for doc {i+1}>"' for i in range(n_docs)])
 
@@ -231,7 +233,10 @@ Base every value on actual document content. If only one document exists:
 DOCUMENTS:
 {context}"""
 
-    return _call_analyze(prompt)
+    result = _call_analyze(prompt)
+    if "compareRows" not in result:
+        result["compareRows"] = []
+    return result
 
 
 def _analyze_glossary(context: str) -> dict:
@@ -260,7 +265,10 @@ If the documents contain NO meaningful technical terminology (e.g. fiction, casu
 DOCUMENTS:
 {context}"""
 
-    return _call_analyze(prompt)
+    result = _call_analyze(prompt)
+    if "glossaryEntries" not in result:
+        result["glossaryEntries"] = []
+    return result
 
 
 def _call_analyze(prompt: str) -> dict:
@@ -299,7 +307,7 @@ def detect_mode(collection_id: str, file_names: list[str]) -> dict:
     if not context:
         return {"suggestion": None, "reason": ""}
 
-    n_docs    = len(file_names)
+    n_docs = len(file_names)
     files_str = ", ".join(file_names)
 
     prompt = f"""You are analysing {n_docs} uploaded document(s): {files_str}
@@ -329,7 +337,7 @@ DOCUMENT CONTENT:
         raw = get_llm_response(
             messages=[
                 {"role": "system", "content": "Analyse documents and return ONLY valid JSON."},
-                {"role": "user",   "content": prompt},
+                {"role": "user", "content": prompt},
             ],
             temperature=0.1,
             max_tokens=200,
@@ -337,7 +345,7 @@ DOCUMENT CONTENT:
         data = json.loads(extract_json(raw or "{}"))
         return {
             "suggestion": data.get("suggestion"),
-            "reason":     data.get("reason", ""),
+            "reason": data.get("reason", ""),
         }
     except Exception as e:
         logger.error("detect_mode error: %s", e)
