@@ -84,7 +84,7 @@ export default function QuizReadyPage() {
       <TwoColumnLayout
         left={
           <div>
-            <span className='inline-flex items-center gap-2 bg-primary/15 border border-primary/30 rounded-full px-4 py-1.5 text-sm text-primary font-medium mb-6'>
+            <span className='inline-flex items-center gap-2 bg-primary/15 border border-primary/30 rounded-full px-4 py-1.5 text-sm text-app-text font-medium mb-6'>
               <span className='w-1.5 h-1.5 rounded-full bg-primary' />
               All set
             </span>
@@ -155,7 +155,7 @@ export default function QuizReadyPage() {
                         color: 'var(--color-primary)',
                       }}
                     />
-                    <p className='text-primary text-xs font-semibold'>
+                    <p className='text-app-text text-xs font-semibold'>
                       AI-generated questions
                     </p>
                   </div>
@@ -178,7 +178,7 @@ export default function QuizReadyPage() {
                         color: 'var(--color-primary)',
                       }}
                     />
-                    <p className='text-primary text-xs font-semibold'>
+                    <p className='text-app-text text-xs font-semibold'>
                       Oral mode tips
                     </p>
                   </div>
