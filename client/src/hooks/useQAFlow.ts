@@ -31,24 +31,23 @@ import {
   CompareRow,
   GlossaryEntry,
 } from '@/types/qa';
-import { getStoredCollectionId, setSummaryFlow, toFilePayloads } from '@/lib/storage';
+import { setSummaryFlow } from '@/lib/storage';
 import { BASE_URL, uploadFiles } from '@/lib/api';
 
 
 let _counter = 0;
 const uid = () => `msg-${++_counter}-${Date.now()}`;
 const screenUid = () => `scr-${++_counter}-${Date.now()}`;
-
-const MODE_SCREEN_TYPE: Partial<Record<QAMode, LeftScreenType>> = {
-  resume: 'analysis-steps',
-  compare: 'compare-table',
-  glossary: 'glossary',
-};
+// const MODE_SCREEN_TYPE: Partial<Record<QAMode, LeftScreenType>> = {
+//   resume: 'analysis-steps',
+//   compare: 'compare-table',
+//   glossary: 'glossary',
+// };
 
 function findModeScreenIdx(screens: LeftPanelScreen[], mode: QAMode): number {
-  const type = MODE_SCREEN_TYPE[mode];
-  if (!type) return -1;
-  return screens.findIndex((s) => s.type === type);
+  // const type = MODE_SCREEN_TYPE[mode];
+  // if (!type) return -1;
+  return screens.findIndex((s) => s.mode === mode);
 }
 
 function buildScreenPatch(
@@ -60,26 +59,30 @@ function buildScreenPatch(
   },
   files: StoredFileMeta[],
 ): Partial<LeftPanelScreen> {
-  if (mode === 'resume' && analysis.analysisSteps)
-    return {
-      type: 'analysis-steps',
-      label: 'Resume analysis',
-      analysisSteps: analysis.analysisSteps,
-    };
-  if (mode === 'compare' && analysis.compareRows)
-    return {
-      type: 'compare-table',
-      label: 'Comparison',
-      compareFiles: files.map((f) => f.name),
-      compareRows: analysis.compareRows,
-    };
-  if (mode === 'glossary' && analysis.glossaryEntries)
-    return {
-      type: 'glossary',
-      label: 'Glossary',
-      glossaryEntries: analysis.glossaryEntries,
-    };
-  return {};
+  // Always return the correct type for the mode, even if data is empty
+  switch (mode) {
+    case 'resume':
+      return {
+        type: 'analysis-steps',
+        label: 'Resume analysis',
+        analysisSteps: analysis.analysisSteps ?? [],
+      };
+    case 'compare':
+      return {
+        type: 'compare-table',
+        label: 'Comparison',
+        compareFiles: files.map((f) => f.name),
+        compareRows: analysis.compareRows ?? [],
+      };
+    case 'glossary':
+      return {
+        type: 'glossary',
+        label: 'Glossary',
+        glossaryEntries: analysis.glossaryEntries ?? [],
+      };
+    default:
+      return {};
+  }
 }
 
 function getStoredSelectedFileNames(): string[] | null {
@@ -275,6 +278,7 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
           : initialMode === 'glossary'
             ? 'glossary'
             : 'info';
+
   const [leftScreens, setLeftScreens] = useState<LeftPanelScreen[]>([
     { id: screenUid(), type: initialScreenType, mode: initialMode, label: 'Overview' },
   ]);
@@ -476,7 +480,8 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
         glossary:
           "I've switched to Glossary Mode and the searchable glossary panel on the left has all extracted terms. Greet me briefly — mention the panel and offer to explain any specific term in more depth. Do not list or re-extract terms.",
       };
-      const existingIdx = findModeScreenIdx(leftScreens, newMode);
+
+      let existingIdx = findModeScreenIdx(leftScreens, newMode);
       if (existingIdx !== -1) setCurrentScreenIndex(existingIdx);
 
       setIsAnalysing(true);
@@ -508,9 +513,9 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
         } else {
           const newScreen: LeftPanelScreen = {
             id: screenUid(),
-            type: 'info',
+            type: patch.type as LeftScreenType,
             mode: newMode,
-            label: 'New',
+            label: patch.label ?? newMode,
             ...patch,
           };
           setLeftScreens((prev) => [...prev, newScreen]);
@@ -522,25 +527,30 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
           });
         }
       } catch (err) {
-        // Analysis failed — panel couldn't be built.
-        if ((err as Error).name !== 'AbortError') {
-          if (existingIdx === -1) {
-            const placeholderScreen: LeftPanelScreen = {
-              id: screenUid(),
-              type: 'info',
-              mode: newMode,
-              label: newMode,
-            };
-            setLeftScreens((prev) => [...prev, placeholderScreen]);
-            setCurrentScreenIndex((prev) => prev + 1);
-          }
-          addMessage({
-            role: 'assistant',
-            content: `There was a problem loading the **${newMode} panel** — the AI service may be temporarily unavailable. You can still ask questions in chat, or try switching modes again.`,
-          });
-          setIsAnalysing(false);
-          return;
+        // Analysis failed — still need a screen with the correct type
+        const fallbackPatch = buildScreenPatch(newMode, {}, selectedFiles);
+        if (existingIdx !== -1) {
+          setLeftScreens((prev) =>
+            prev.map((s, i) =>
+              i === existingIdx ? { ...s, mode: newMode, ...fallbackPatch } : s,
+            ),
+          );
+          setCurrentScreenIndex(existingIdx);
+        } else {
+          const fallbackScreen: LeftPanelScreen = {
+            id: screenUid(),
+            type: fallbackPatch.type as LeftScreenType,
+            mode: newMode,
+            label: fallbackPatch.label ?? newMode,
+            ...fallbackPatch,
+          };
+          setLeftScreens((prev) => [...prev, fallbackScreen]);
+          setCurrentScreenIndex((prev) => prev + 1);
         }
+        addMessage({
+          role: 'assistant',
+          content: `There was a problem loading the **${newMode} panel** — the AI service may be temporarily unavailable. You can still ask questions in chat, or try switching modes again.`,
+        });
       } finally {
         setIsAnalysing(false);
       }
@@ -628,12 +638,10 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
       setIsAnalysing(true);
       try {
         const analysis = await fetchAnalyze(colId, mode, newFiles);
-        if (!analysis.mismatch) {
-          const patch = buildScreenPatch(mode, analysis, newFiles);
-          setLeftScreens((prev) =>
-            prev.map((s, i) => (i === existingIdx ? { ...s, ...patch } : s)),
-          );
-        }
+        const patch = buildScreenPatch(mode, analysis, newFiles);
+        setLeftScreens((prev) =>
+          prev.map((s, i) => (i === existingIdx ? { ...s, ...patch } : s)),
+        );
         await greetForMode(
           mode,
           newFiles,
@@ -715,19 +723,12 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
         }
       }
     },
-    [
-      mode,
-      messages,
-      isStreaming,
-      isAnalysing,
-      addMessage,
-      streamIntoMessage,
-    ],
+    [mode, messages, isStreaming, isAnalysing, addMessage, streamIntoMessage],
   );
-
   // Initial chat
 
-  const initChat = useCallback(async (filesOverride?: StoredFileMeta[]) => {
+  const initChat = useCallback(
+    async (filesOverride?: StoredFileMeta[]) => {
     // Ref-based guard — the messages.length check is unreliable because
     // initChat captures a stale closure where messages is always [].
     if (initDone.current) return;
@@ -736,179 +737,198 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
     // Always read the live selection from the ref, not a stale closure value.
     // If the caller passes filesOverride (e.g. from the hydration effect), use
     // that directly — it is guaranteed to be up-to-date regardless of ref timing.
-    const currentFiles = filesOverride ?? selectedFilesRef.current;
+      const currentFiles = filesOverride ?? selectedFilesRef.current;
 
-    const MODE_GREETINGS: Record<QAMode, string> = {
-      default: "I've reviewed your documents. What would you like to know?",
-      resume:
-        "I've analysed your resume and job description. I can help identify skill gaps, suggest rewrites, and draft a cover letter. Where would you like to start?",
-      compare:
-        "I've compared your documents and prepared a structured breakdown on the left. Feel free to ask any questions.",
-      glossary:
-        "I've extracted the key technical terminology from your documents — you can browse the glossary on the left. Ask me about any term.",
-    };
+      const MODE_GREETINGS: Record<QAMode, string> = {
+        default: "I've reviewed your documents. What would you like to know?",
+        resume:
+          "I've analysed your resume and job description. I can help identify skill gaps, suggest rewrites, and draft a cover letter. Where would you like to start?",
+        compare:
+          "I've compared your documents and prepared a structured breakdown on the left. Feel free to ask any questions.",
+        glossary:
+          "I've extracted the key technical terminology from your documents — you can browse the glossary on the left. Ask me about any term.",
+      };
 
     // Step 1: ensure we have a collection_id
-    let colId = '';
-    try {
-      colId = await ensureCollectionId(currentFiles);
-      collectionIdRef.current = colId;
-      setCollectionId(colId);
-    } catch (err) {
-      console.error('Could not index files:', err);
-    }
+      let colId = '';
+      try {
+        colId = await ensureCollectionId(currentFiles);
+        collectionIdRef.current = colId;
+        setCollectionId(colId);
+      } catch (err) {
+        console.error('Could not index files:', err);
+      }
 
     // Step 2: auto mode detection (only in default mode on first load)
-    if (mode === 'default' && colId && currentFiles.length > 0) {
-      try {
-        const detect = await fetchDetect(colId, currentFiles);
-        if (
-          detect.suggestion &&
-          (['resume', 'compare', 'glossary'] as QAMode[]).includes(
-            detect.suggestion,
-          )
-        ) {
-          const suggestedMode = detect.suggestion as QAMode;
+      if (mode === 'default' && colId && currentFiles.length > 0) {
+        try {
+          const detect = await fetchDetect(colId, currentFiles);
+          if (
+            detect.suggestion &&
+            (['resume', 'compare', 'glossary'] as QAMode[]).includes(
+              detect.suggestion,
+            )
+          ) {
+            const suggestedMode = detect.suggestion as QAMode;
 
-          // Show the suggestion card in chat
-          setMessages([
-            {
-              id: uid(),
-              role: 'assistant',
-              content:
-                detect.reason ||
-                `These documents look like they suit **${suggestedMode} mode**.`,
-              isLoading: false,
-              timestamp: Date.now(),
-              autoModeSuggestion: {
-                mode: suggestedMode,
-                reason: detect.reason,
+            // Show the suggestion card in chat
+            setMessages([
+              {
+                id: uid(),
+                role: 'assistant',
+                content:
+                  detect.reason ||
+                  `These documents look like they suit **${suggestedMode} mode**.`,
+                isLoading: false,
+                timestamp: Date.now(),
+                autoModeSuggestion: {
+                  mode: suggestedMode,
+                  reason: detect.reason,
+                },
               },
-            },
-          ]);
-        }
-      } catch {
+            ]);
+          }
+        } catch {
         /* detection failed silently — proceed normally */
+        }
       }
-    }
 
     // Step 2b: resume/compare require exactly 2 files — show a clear message immediately,
     // mirroring the Compare Mode behaviour that already exists in changeMode.
-    if ((mode === 'resume' || mode === 'compare') && currentFiles.length !== 2) {
-      const count = currentFiles.length;
-      const modeLabel = mode.charAt(0).toUpperCase() + mode.slice(1);
-      addMessage({
-        role: 'assistant',
-        content:
-          count < 2
-            ? mode === 'resume'
-              ? `**Resume Mode** needs **2 documents** — a **resume** and a **job description**. You only have **${count}** document uploaded. Please go back, add your ${count === 0 ? 'resume and job description' : 'job description'}, and try again.`
-              : `**Compare Mode** requires exactly **2 documents**, but you only have **${count}** selected. Please add another document and try again.`
-            : `**${modeLabel} Mode** requires exactly **2 documents**, but you have **${count}** selected. Please deselect some files, then try again.`,
-        modeSuggestions: (['default', 'glossary'] as QAMode[]),
-      });
-      return;
-    }
+      if ((mode === 'resume' || mode === 'compare') && currentFiles.length !== 2) {
+        const count = currentFiles.length;
+        const modeLabel = mode.charAt(0).toUpperCase() + mode.slice(1);
+        addMessage({
+          role: 'assistant',
+          content:
+            count < 2
+              ? mode === 'resume'
+                ? `**Resume Mode** needs **2 documents** — a **resume** and a **job description**. You only have **${count}** document uploaded. Please go back, add your ${count === 0 ? 'resume and job description' : 'job description'}, and try again.`
+                : `**Compare Mode** requires exactly **2 documents**, but you only have **${count}** selected. Please add another document and try again.`
+              : `**${modeLabel} Mode** requires exactly **2 documents**, but you have **${count}** selected. Please deselect some files, then try again.`,
+          modeSuggestions: ['default', 'glossary'],
+        });
+        return;
+      }
 
     // Step 3: for non-default initial modes, run analysis first
-    if (mode !== 'default' && colId) {
-      setIsAnalysing(true);
-      try {
-        const analysis = await fetchAnalyze(colId, mode, currentFiles);
-
+      if (mode !== 'default' && colId) {
+        setIsAnalysing(true);
+        try {
+          const analysis = await fetchAnalyze(colId, mode, currentFiles);
         // Mismatch only applies to resume and compare.        
         // Glossary and default work with any document — never block them.
-        if (analysis.mismatch && (mode === 'resume' || mode === 'compare')) {
-          setIsAnalysing(false);
-          addMessage({
-            role: 'assistant',
-            content: `The documents you uploaded don't seem to fit **${mode} mode**. Perhaps try a different mode?`,
-            modeSuggestions:
-              (analysis.suggestions as QAMode[]) ??
-              (['default', 'resume', 'compare', 'glossary'] as QAMode[]).filter(
-                (m) => m !== mode,
-              ),
-          });
-          return;
-        }
+          if (analysis.mismatch && (mode === 'resume' || mode === 'compare')) {
+            setIsAnalysing(false);
+            addMessage({
+              role: 'assistant',
+              content: `The documents you uploaded don't seem to fit **${mode} mode**. Perhaps try a different mode?`,
+              modeSuggestions:
+                (analysis.suggestions as QAMode[]) ??
+                (
+                  ['default', 'resume', 'compare', 'glossary'] as QAMode[]
+                ).filter((m) => m !== mode),
+            });
+            return;
+          }
 
-        const patch = buildScreenPatch(mode, analysis, currentFiles);
+          const patch = buildScreenPatch(mode, analysis, currentFiles);
         // Patch the existing screen if one for this mode already exists (e.g. initialMode === mode),
         // otherwise push a new one. This prevents duplicate screens on re-click.
-        const existingInitIdx = findModeScreenIdx(leftScreens, mode);
-        if (existingInitIdx !== -1) {
-          setLeftScreens((prev) =>
-            prev.map((s, i) =>
-              i === existingInitIdx ? { ...s, mode, ...patch } : s,
-            ),
-          );
-          setCurrentScreenIndex(existingInitIdx);
-        } else {
-          const newScreen: LeftPanelScreen = {
-            id: screenUid(),
-            type: 'info',
-            mode,
-            label: 'Overview',
-            ...patch,
-          };
-          setLeftScreens((prev) => [...prev, newScreen]);
-          setCurrentScreenIndex((prev) => prev + 1);
+          const existingInitIdx = findModeScreenIdx(leftScreens, mode);
+          if (existingInitIdx !== -1) {
+            setLeftScreens((prev) =>
+              prev.map((s, i) =>
+                i === existingInitIdx ? { ...s, mode, ...patch } : s,
+              ),
+            );
+            setCurrentScreenIndex(existingInitIdx);
+          } else {
+            const newScreen: LeftPanelScreen = {
+              id: screenUid(),
+              type: patch.type as LeftScreenType,
+              mode,
+              label: patch.label ?? 'Overview',
+              ...patch,
+            };
+            setLeftScreens((prev) => [...prev, newScreen]);
+            setCurrentScreenIndex((prev) => prev + 1);
+          }
+        } catch {
+          // Fallback: create screen with correct type and empty data
+          const fallbackPatch = buildScreenPatch(mode, {}, currentFiles);
+          const existingInitIdx = findModeScreenIdx(leftScreens, mode);
+          if (existingInitIdx !== -1) {
+            setLeftScreens((prev) =>
+              prev.map((s, i) =>
+                i === existingInitIdx ? { ...s, mode, ...fallbackPatch } : s,
+              ),
+            );
+            setCurrentScreenIndex(existingInitIdx);
+          } else {
+            const fallbackScreen: LeftPanelScreen = {
+              id: screenUid(),
+              type: fallbackPatch.type as LeftScreenType,
+              mode,
+              label: fallbackPatch.label ?? 'Overview',
+              ...fallbackPatch,
+            };
+            setLeftScreens((prev) => [...prev, fallbackScreen]);
+            setCurrentScreenIndex((prev) => prev + 1);
+          }
+        } finally {
+          setIsAnalysing(false);
         }
-      } catch {
-        /* silent — greet anyway */
-      } finally {
-        setIsAnalysing(false);
       }
-    }
 
     // Step 4: greeting
-    const greetId = uid();
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: greetId,
-        role: 'assistant',
-        content: '',
-        isLoading: true,
-        timestamp: Date.now(),
-      },
-    ]);
+      const greetId = uid();
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: greetId,
+          role: 'assistant',
+          content: '',
+          isLoading: true,
+          timestamp: Date.now(),
+        },
+      ]);
 
-    const PANEL_HINTS: Partial<Record<QAMode, string>> = {
-      resume:
-        ' The analysis panel on the left is populated — do not reproduce it. Offer to answer specific questions, help with cover letter drafting, or rewrite bullet points.',
-      compare:
-        ' The comparison table is on the left — do not reproduce it. Offer to answer follow-up questions.',
-      glossary:
-        ' The searchable glossary panel on the left has all extracted terms — do not list them in chat. Offer to explain any specific term in more depth.',
-    };
-    const panelHint = PANEL_HINTS[mode] ?? '';
+      const PANEL_HINTS: Partial<Record<QAMode, string>> = {
+        resume:
+          ' The analysis panel on the left is populated — do not reproduce it. Offer to answer specific questions, help with cover letter drafting, or rewrite bullet points.',
+        compare:
+          ' The comparison table is on the left — do not reproduce it. Offer to answer follow-up questions.',
+        glossary:
+          ' The searchable glossary panel on the left has all extracted terms — do not list them in chat. Offer to explain any specific term in more depth.',
+      };
+      const panelHint = PANEL_HINTS[mode] ?? '';
 
-    try {
-      await streamIntoMessage(
-        greetId,
-        mode,
-        currentFiles,
-        [
-          {
-            role: 'user',
-            content: `Greet the user for ${mode} mode. Start with: "${MODE_GREETINGS[mode]}"${panelHint}`,
-          },
-        ],
-        colId,
-      );
-    } catch {
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === greetId
-            ? { ...m, content: MODE_GREETINGS[mode], isLoading: false }
-            : m,
-        ),
-      );
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
+      try {
+        await streamIntoMessage(
+          greetId,
+          mode,
+          currentFiles,
+          [
+            {
+              role: 'user',
+              content: `Greet the user for ${mode} mode. Start with: "${MODE_GREETINGS[mode]}"${panelHint}`,
+            },
+          ],
+          colId,
+        );
+      } catch {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === greetId
+              ? { ...m, content: MODE_GREETINGS[mode], isLoading: false }
+              : m,
+          ),
+        );
+      }
+    },
+    [mode, addMessage, streamIntoMessage, leftScreens],
+  );
   // Screen navigation
 
   const navigateScreen = useCallback(
