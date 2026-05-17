@@ -58,6 +58,7 @@ export interface LeftPanelScreen {
   type: LeftScreenType;
   mode: QAMode;
   label: string; // Short label for the screen indicator (e.g. "Resume analysis") */
+  status?: 'loading' | 'ready' | 'error';
   // mode-specific data
   analysisSteps?: AnalysisStep[];
   compareFiles?: string[];

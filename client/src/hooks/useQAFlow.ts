@@ -34,7 +34,6 @@ import {
 import { setSummaryFlow } from '@/lib/storage';
 import { BASE_URL, uploadFiles } from '@/lib/api';
 
-
 let _counter = 0;
 const uid = () => `msg-${++_counter}-${Date.now()}`;
 const screenUid = () => `scr-${++_counter}-${Date.now()}`;
@@ -65,12 +64,14 @@ function buildScreenPatch(
       return {
         type: 'analysis-steps',
         label: 'Resume analysis',
+        status: 'ready',
         analysisSteps: analysis.analysisSteps ?? [],
       };
     case 'compare':
       return {
         type: 'compare-table',
         label: 'Comparison',
+        status: 'ready',
         compareFiles: files.map((f) => f.name),
         compareRows: analysis.compareRows ?? [],
       };
@@ -78,6 +79,7 @@ function buildScreenPatch(
       return {
         type: 'glossary',
         label: 'Glossary',
+        status: 'ready',
         glossaryEntries: analysis.glossaryEntries ?? [],
       };
     default:
@@ -280,7 +282,13 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
             : 'info';
 
   const [leftScreens, setLeftScreens] = useState<LeftPanelScreen[]>([
-    { id: screenUid(), type: initialScreenType, mode: initialMode, label: 'Overview' },
+    {
+      id: screenUid(),
+      type: initialScreenType,
+      mode: initialMode,
+      label: 'Overview',
+      status: initialMode === 'default' ? 'ready' : 'loading',
+    },
   ]);
   const [currentScreenIndex, setCurrentScreenIndex] = useState(0);
 
@@ -437,7 +445,10 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
       addMessage({ role: 'user', content: '', modeChange: newMode });
       const colId = collectionIdRef.current;
 
-      if ((newMode === 'compare' || newMode === 'resume') && selectedFiles.length !== 2) {
+      if (
+        (newMode === 'compare' || newMode === 'resume') &&
+        selectedFiles.length !== 2
+      ) {
         const count = selectedFiles.length;
         const modeLabel = newMode.charAt(0).toUpperCase() + newMode.slice(1);
         addMessage({
@@ -482,14 +493,54 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
       };
 
       let existingIdx = findModeScreenIdx(leftScreens, newMode);
-      if (existingIdx !== -1) setCurrentScreenIndex(existingIdx);
+
+      // Immediately push (or mark) a loading screen for the new mode so the
+      // left panel shows a spinner from the very first render, not empty data.
+      const newModeScreenType: LeftScreenType =
+        newMode === 'resume'
+          ? 'analysis-steps'
+          : newMode === 'compare'
+            ? 'compare-table'
+            : newMode === 'glossary'
+              ? 'glossary'
+              : 'default-result';
+
+      if (existingIdx !== -1) {
+        // Reuse the existing screen slot but mark it loading so stale data is hidden
+        setLeftScreens((prev) =>
+          prev.map((s, i) =>
+            i === existingIdx ? { ...s, status: 'loading' as const } : s,
+          ),
+        );
+        setCurrentScreenIndex(existingIdx);
+      } else {
+        // Push a placeholder loading screen immediately
+        const loadingScreen: LeftPanelScreen = {
+          id: screenUid(),
+          type: newModeScreenType,
+          mode: newMode,
+          label: 'Overview',
+          status: 'loading',
+        };
+        setLeftScreens((prev) => {
+          existingIdx = prev.length; // capture the index we're about to occupy
+          return [...prev, loadingScreen];
+        });
+        setCurrentScreenIndex((prev) => prev + 1);
+        existingIdx = leftScreens.length; // fallback — updated synchronously in the setter above
+      }
 
       setIsAnalysing(true);
       try {
         const analysis = await fetchAnalyze(colId, newMode, selectedFiles);
 
-        if (analysis.mismatch && (newMode === 'resume' || newMode === 'compare')) {
-          if (existingIdx === -1) setCurrentScreenIndex(0);
+        if (
+          analysis.mismatch &&
+          (newMode === 'resume' || newMode === 'compare')
+        ) {
+          // Remove the loading placeholder we pushed and go back to screen 0
+          setLeftScreens((prev) => prev.filter((s) => s.mode !== newMode));
+          setCurrentScreenIndex(0);
           addMessage({
             role: 'assistant',
             content: `The documents you uploaded don't seem to fit **${newMode} mode**. Perhaps try one of the other modes?`,
@@ -503,53 +554,22 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
         }
 
         const patch = buildScreenPatch(newMode, analysis, selectedFiles);
-        if (existingIdx !== -1) {
-          setLeftScreens((prev) =>
-            prev.map((s, i) =>
-              i === existingIdx ? { ...s, mode: newMode, ...patch } : s,
-            ),
-          );
-          setCurrentScreenIndex(existingIdx);
-        } else {
-          const newScreen: LeftPanelScreen = {
-            id: screenUid(),
-            type: patch.type as LeftScreenType,
-            mode: newMode,
-            label: patch.label ?? newMode,
-            ...patch,
-          };
-          setLeftScreens((prev) => [...prev, newScreen]);
-          // Use functional update to get the latest length without racing
-          setCurrentScreenIndex((prev) => {
-            // We just added one screen, so new index = current length
-            // But we can't read leftScreens here, so use a ref trick below
-            return prev + 1;
-          });
-        }
-      } catch (err) {
-        // Analysis failed — still need a screen with the correct type
-        const fallbackPatch = buildScreenPatch(newMode, {}, selectedFiles);
-        if (existingIdx !== -1) {
-          setLeftScreens((prev) =>
-            prev.map((s, i) =>
-              i === existingIdx ? { ...s, mode: newMode, ...fallbackPatch } : s,
-            ),
-          );
-          setCurrentScreenIndex(existingIdx);
-        } else {
-          const fallbackScreen: LeftPanelScreen = {
-            id: screenUid(),
-            type: fallbackPatch.type as LeftScreenType,
-            mode: newMode,
-            label: fallbackPatch.label ?? newMode,
-            ...fallbackPatch,
-          };
-          setLeftScreens((prev) => [...prev, fallbackScreen]);
-          setCurrentScreenIndex((prev) => prev + 1);
-        }
+        // existingIdx is always valid here — we pre-created the loading screen above
+        setLeftScreens((prev) =>
+          prev.map((s) =>
+            s.mode === newMode ? { ...s, mode: newMode, ...patch } : s,
+          ),
+        );
+      } catch {
+        // Mark the loading screen we pre-pushed as errored
+        setLeftScreens((prev) =>
+          prev.map((s) =>
+            s.mode === newMode ? { ...s, status: 'error' as const } : s,
+          ),
+        );
         addMessage({
           role: 'assistant',
-          content: `There was a problem loading the **${newMode} panel** — the AI service may be temporarily unavailable. You can still ask questions in chat, or try switching modes again.`,
+          content: `There was a problem loading the **${newMode} panel** — the AI service may be temporarily unavailable. You can try reloading page or try again later.`,
         });
       } finally {
         setIsAnalysing(false);
@@ -729,14 +749,14 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
 
   const initChat = useCallback(
     async (filesOverride?: StoredFileMeta[]) => {
-    // Ref-based guard — the messages.length check is unreliable because
-    // initChat captures a stale closure where messages is always [].
-    if (initDone.current) return;
-    initDone.current = true;
+      // Ref-based guard — the messages.length check is unreliable because
+      // initChat captures a stale closure where messages is always [].
+      if (initDone.current) return;
+      initDone.current = true;
 
-    // Always read the live selection from the ref, not a stale closure value.
-    // If the caller passes filesOverride (e.g. from the hydration effect), use
-    // that directly — it is guaranteed to be up-to-date regardless of ref timing.
+      // Always read the live selection from the ref, not a stale closure value.
+      // If the caller passes filesOverride (e.g. from the hydration effect), use
+      // that directly — it is guaranteed to be up-to-date regardless of ref timing.
       const currentFiles = filesOverride ?? selectedFilesRef.current;
 
       const MODE_GREETINGS: Record<QAMode, string> = {
@@ -749,7 +769,7 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
           "I've extracted the key technical terminology from your documents — you can browse the glossary on the left. Ask me about any term.",
       };
 
-    // Step 1: ensure we have a collection_id
+      // Step 1: ensure we have a collection_id
       let colId = '';
       try {
         colId = await ensureCollectionId(currentFiles);
@@ -757,9 +777,24 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
         setCollectionId(colId);
       } catch (err) {
         console.error('Could not index files:', err);
+        // Mark any non-default loading screen as error so the panel doesn't
+        // stay stuck on the spinner — upload failing means nothing will work.
+        if (mode !== 'default') {
+          setLeftScreens((prev) =>
+            prev.map((s) =>
+              s.mode === mode ? { ...s, status: 'error' as const } : s,
+            ),
+          );
+        }
+        addMessage({
+          role: 'assistant',
+          content:
+            'Unable to connect to the AI service. Please check your connection and try again.',
+        });
+        return;
       }
 
-    // Step 2: auto mode detection (only in default mode on first load)
+      // Step 2: auto mode detection (only in default mode on first load)
       if (mode === 'default' && colId && currentFiles.length > 0) {
         try {
           const detect = await fetchDetect(colId, currentFiles);
@@ -789,13 +824,16 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
             ]);
           }
         } catch {
-        /* detection failed silently — proceed normally */
+          /* detection failed silently — proceed normally */
         }
       }
 
-    // Step 2b: resume/compare require exactly 2 files — show a clear message immediately,
-    // mirroring the Compare Mode behaviour that already exists in changeMode.
-      if ((mode === 'resume' || mode === 'compare') && currentFiles.length !== 2) {
+      // Step 2b: resume/compare require exactly 2 files — show a clear message immediately,
+      // mirroring the Compare Mode behaviour that already exists in changeMode.
+      if (
+        (mode === 'resume' || mode === 'compare') &&
+        currentFiles.length !== 2
+      ) {
         const count = currentFiles.length;
         const modeLabel = mode.charAt(0).toUpperCase() + mode.slice(1);
         addMessage({
@@ -811,15 +849,18 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
         return;
       }
 
-    // Step 3: for non-default initial modes, run analysis first
+      // Step 3: for non-default initial modes, run analysis first
       if (mode !== 'default' && colId) {
         setIsAnalysing(true);
         try {
           const analysis = await fetchAnalyze(colId, mode, currentFiles);
-        // Mismatch only applies to resume and compare.        
-        // Glossary and default work with any document — never block them.
+          // Mismatch only applies to resume and compare.
+          // Glossary and default work with any document — never block them.
           if (analysis.mismatch && (mode === 'resume' || mode === 'compare')) {
             setIsAnalysing(false);
+            // Remove the loading placeholder — there's nothing to show
+            setLeftScreens((prev) => prev.filter((s) => s.mode !== mode));
+            setCurrentScreenIndex(0);
             addMessage({
               role: 'assistant',
               content: `The documents you uploaded don't seem to fit **${mode} mode**. Perhaps try a different mode?`,
@@ -833,8 +874,8 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
           }
 
           const patch = buildScreenPatch(mode, analysis, currentFiles);
-        // Patch the existing screen if one for this mode already exists (e.g. initialMode === mode),
-        // otherwise push a new one. This prevents duplicate screens on re-click.
+          // Patch the existing screen if one for this mode already exists (e.g. initialMode === mode),
+          // otherwise push a new one. This prevents duplicate screens on re-click.
           const existingInitIdx = findModeScreenIdx(leftScreens, mode);
           if (existingInitIdx !== -1) {
             setLeftScreens((prev) =>
@@ -855,33 +896,38 @@ export function useQAFlow(allFiles: StoredFileMeta[], initialMode: QAMode) {
             setCurrentScreenIndex((prev) => prev + 1);
           }
         } catch {
-          // Fallback: create screen with correct type and empty data
-          const fallbackPatch = buildScreenPatch(mode, {}, currentFiles);
-          const existingInitIdx = findModeScreenIdx(leftScreens, mode);
-          if (existingInitIdx !== -1) {
-            setLeftScreens((prev) =>
-              prev.map((s, i) =>
-                i === existingInitIdx ? { ...s, mode, ...fallbackPatch } : s,
-              ),
-            );
-            setCurrentScreenIndex(existingInitIdx);
-          } else {
-            const fallbackScreen: LeftPanelScreen = {
-              id: screenUid(),
-              type: fallbackPatch.type as LeftScreenType,
-              mode,
-              label: fallbackPatch.label ?? 'Overview',
-              ...fallbackPatch,
-            };
-            setLeftScreens((prev) => [...prev, fallbackScreen]);
-            setCurrentScreenIndex((prev) => prev + 1);
-          }
+          //           // Fallback: create screen with correct type and empty data
+          // const fallbackPatch = buildScreenPatch(mode, {}, currentFiles);
+          // const existingInitIdx = findModeScreenIdx(leftScreens, mode);
+          // if (existingInitIdx !== -1) {
+          //   setLeftScreens((prev) =>
+          //     prev.map((s, i) =>
+          //       i === existingInitIdx ? { ...s, mode, ...fallbackPatch } : s,
+          //     ),
+          //   );
+          //   setCurrentScreenIndex(existingInitIdx);
+          // } else {
+          //   const fallbackScreen: LeftPanelScreen = {
+          //     id: screenUid(),
+          //     type: fallbackPatch.type as LeftScreenType,
+          //     mode,
+          //     label: fallbackPatch.label ?? 'Overview',
+          //     ...fallbackPatch,
+          //   };
+          //   setLeftScreens((prev) => [...prev, fallbackScreen]);
+          //   setCurrentScreenIndex((prev) => prev + 1);
+          // }
+          setLeftScreens((prev) =>
+            prev.map((s) =>
+              s.mode === mode ? { ...s, status: 'error' as const } : s,
+            ),
+          );
         } finally {
           setIsAnalysing(false);
         }
       }
 
-    // Step 4: greeting
+      // Step 4: greeting
       const greetId = uid();
       setMessages((prev) => [
         ...prev,

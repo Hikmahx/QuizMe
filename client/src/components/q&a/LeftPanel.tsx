@@ -58,6 +58,31 @@ export default function LeftPanel({
   const canPrev = safeIndex > 0;
   const canNext = safeIndex < screens.length - 1;
 
+  if (screen.status === 'loading') {
+    return (
+      <div className='flex flex-col items-center justify-center h-full gap-4 text-app-text-secondary'>
+        <div className='w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin' />
+        <p className='text-sm'>Analysing your documents…</p>
+      </div>
+    );
+  }
+
+  if (screen.status === 'error') {
+    return (
+      <div className='flex flex-col items-center justify-center h-full gap-3 text-app-text-secondary px-6 text-center'>
+        <ion-icon
+          name='alert-circle-outline'
+          style={{ fontSize: '32px', color: '#f87171' }}
+        />
+        <p className='text-sm font-medium text-app-text'>Analysis failed</p>
+        <p className='text-xs leading-relaxed'>
+          Something went wrong loading this panel. Please check your connection
+          and try again.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className='flex flex-col h-full gap-3'>
       {/* Navigator — only shown when there are multiple screens */}
