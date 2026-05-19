@@ -121,7 +121,7 @@ function CopyButton({ text }: { text: string }) {
       title='Copy to clipboard'
     >
       <ion-icon name={icon} style={{ fontSize: '13px' }} />
-      {label}
+      <span className="hidden sm:block">{label}</span>
     </button>
   );
 }

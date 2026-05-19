@@ -239,7 +239,7 @@ function FileRow({ file, isProcessing, onPreview, onRemove }: FileRowProps) {
     <button
       type='button'
       onClick={onPreview}
-      className='group relative w-full flex items-center gap-3 bg-app-card rounded-xl px-4 py-3.5 text-left border border-transparent hover:border-purple-400/30 transition-all duration-150'
+      className='group relative w-full flex items-center gap-3 bg-app-card rounded-xl px-4 py-3.5 text-left border border-transparent hover:border-purple-400/30 transition-all duration-150 cursor-pointer'
     >
       {/* File type badge */}
       <div className='w-9 h-9 flex-shrink-0 bg-purple-500/15 rounded-[10px] flex items-center justify-center'>
@@ -265,10 +265,10 @@ function FileRow({ file, isProcessing, onPreview, onRemove }: FileRowProps) {
 
       <span
         aria-hidden
-        className='absolute inset-0 flex items-center justify-center gap-1.5 text-xs text-purple-400 font-medium rounded-xl bg-purple-500/8 opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none'
+        className='absolute inset-0 flex items-center justify-end pr-12 gap-1.5 text-xs text-purple-400 font-medium rounded-xl bg-purple-500/8 opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none'
       >
         <ion-icon name='eye-outline' style={{ fontSize: '15px' }} />
-        Preview
+        <span className='sr-only'>Preview</span>
       </span>
 
       <button
