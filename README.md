@@ -79,6 +79,19 @@ Quiz CTA available on every result page
 
 - Type badge, name, size or `N words · pasted text` for pasted entries, progress bar, × remove
 
+- **Click any file to open an inline preview modal** 
+<div align="center">
+  <img src="./client/public/readme/quizme-preview.png" width="48%" />
+  <img src="./client/public/readme/quizme-preview-2.png" width="48%" />
+</div>
+
+- Supported for all accepted file types:
+  - **PDF** — rendered via native `<iframe>` (full browser PDF viewer)
+  - **DOCX** — text extracted client-side from the raw ZIP binary; graceful fallback message if the entry is deflate-compressed
+  - **TXT** — plain text rendered in a scrollable `<pre>` block with selectable text
+  - **MD** — Markdown converted to HTML (headings, bold, italic, inline code, lists, `<hr>`) and rendered as formatted content
+- **Copy text** button in the modal header — available for TXT and MD files; copies the full raw content to the clipboard with a "Copied!" confirmation state
+
 ---
 
 ### 1. View Summary
