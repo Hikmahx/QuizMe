@@ -478,4 +478,4 @@ API docs available at `http://localhost:8000/docs`.
 
 ## Author
 
-**Hikmah Yousuph** — Full-Stack Developer transitioning into AI Engineering
+**Hikmah Yousuph** — Full-Stack AI Engineer
