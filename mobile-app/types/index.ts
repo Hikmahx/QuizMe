@@ -46,7 +46,7 @@ export interface StoredFileMeta {
   name: string;
   size: number;
   type: string;
-  uri: string;      // local file URI on device (instead of dataUrl)
+  uri: string;
   source?: 'upload';
 }
 
@@ -56,9 +56,13 @@ export type FeatureKey = 'view-summary' | 'ask-questions' | 'quiz-time';
 export interface FeatureMeta {
   key: FeatureKey;
   label: string;
-  icon: string;       // ionicon name
-  bgClass: string;
+  icon: string;
+  bgColor: string;
   iconColor: string;
   route: string;
   description: string;
 }
+
+// Summary types
+export type SummaryLength = 'short' | 'medium' | 'long';
+export type SummaryStyle = 'combined' | 'doc-by-doc';
