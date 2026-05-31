@@ -42,7 +42,7 @@ function HomeInner() {
       <TwoColumnLayout
         left={
           <div>
-            <h1 className='text-4xl md:text-5xl font-light text-app-text leading-tight mb-3'>
+            <h1 className='text-4xl md:text-5xl xl:text-[64px] font-light text-app-text leading-tight mb-3'>
               Welcome to the
               <strong className='block font-bold'>QuizMe App</strong>
             </h1>
