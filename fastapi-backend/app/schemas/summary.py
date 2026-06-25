@@ -18,7 +18,10 @@ class FilePayload(BaseModel):
         Pydantic validators run automatically during object creation.
         This is like a Mongoose custom validator.
         """
-        if not v or len(v) < 100:
+        if not v or not v.strip():
+            raise ValueError("dataUrl appears to be empty or invalid")
+        payload = v.split(",", 1)[1] if "," in v else v
+        if len(payload) < 4:
             raise ValueError("dataUrl appears to be empty or invalid")
         return v
 
