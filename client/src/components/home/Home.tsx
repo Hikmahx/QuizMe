@@ -2,12 +2,44 @@
 
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
+import { motion } from 'motion/react';
 import Header from '@/components/global/Header';
 import TwoColumnLayout from '../global/TwoColumnLayout';
 import Feature from '@/components/home/Feature';
 import UploadStep from '../summary/UploadStep';
 import { FEATURES } from '@/lib/features';
 import { FeatureKey } from '@/types';
+
+// Left column: hero text stagger
+
+const heroContainerVariants = {
+  hidden: {},
+  visible: {
+    transition: { staggerChildren: 0.13 },
+  },
+};
+
+const heroLineVariants = {
+  hidden: { opacity: 0, y: 22 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.55, ease: [0.22, 1, 0.36, 1] },
+  },
+};
+
+// Right column: feature card stagger
+
+const listVariants = {
+  hidden: {},
+  visible: {
+    transition: {
+      staggerChildren: 0.09,
+      // slight delay so hero text leads and cards follow
+      delayChildren: 0.18,
+    },
+  },
+};
 
 
 function HomeInner() {
@@ -28,7 +60,7 @@ function HomeInner() {
 
   if (activeMeta && activeStep === 'upload') {
     return (
-      <div className='relative z-10 flex flex-col min-h-screen animate-fade-in'>
+      <div className='relative z-10 flex flex-col min-h-screen'>
         <Header />
         <UploadStep feature={activeMeta} />
       </div>
@@ -37,22 +69,40 @@ function HomeInner() {
 
   // Default: feature picker 
   return (
-    <div className='relative z-10 flex flex-col min-h-screen animate-fade-in'>
+    <div className='relative z-10 flex flex-col min-h-screen'>
       <Header />
       <TwoColumnLayout
         left={
-          <div>
-            <h1 className='text-4xl md:text-5xl xl:text-[64px] font-light text-app-text leading-tight mb-3'>
+          // Parent broadcasts hidden → visible with stagger to its children
+          <motion.div
+            variants={heroContainerVariants}
+            initial='hidden'
+            animate='visible'
+          >
+            <motion.h1
+              variants={heroLineVariants}
+              className='text-4xl md:text-5xl xl:text-[64px] font-light text-app-text leading-tight mb-3'
+            >
               Welcome to the
               <strong className='block font-bold'>QuizMe App</strong>
-            </h1>
-            <p className='text-app-text-secondary italic text-base mt-4'>
+            </motion.h1>
+
+            <motion.p
+              variants={heroLineVariants}
+              className='text-app-text-secondary italic text-base mt-4'
+            >
               Pick a feature to get started.
-            </p>
-          </div>
+            </motion.p>
+          </motion.div>
         }
         right={
-          <div className='flex flex-col gap-3.5'>
+          // Parent broadcasts hidden → visible with stagger to Feature children
+          <motion.div
+            className='flex flex-col gap-3.5'
+            variants={listVariants}
+            initial='hidden'
+            animate='visible'
+          >
             {FEATURES.map((feature) => (
               <Feature
                 key={feature.key}
@@ -64,21 +114,17 @@ function HomeInner() {
                 onClick={() => handleSelectFeature(feature.key)}
               />
             ))}
-          </div>
+          </motion.div>
         }
       />
     </div>
   );
 }
 
-// Page export wrapped in Suspense (required for useSearchParams) 
-
 export default function Home() {
   return (
-    <>
-      <Suspense>
-        <HomeInner />
-      </Suspense>
-    </>
+    <Suspense>
+      <HomeInner />
+    </Suspense>
   );
 }
