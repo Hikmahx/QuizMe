@@ -11,15 +11,12 @@ import { FEATURES } from '@/lib/features';
 import { FeatureKey } from '@/types';
 
 // Left column: hero text stagger
-
-const heroContainerVariants = {
+const heroContainer = {
   hidden: {},
-  visible: {
-    transition: { staggerChildren: 0.13 },
-  },
+  visible: { transition: { staggerChildren: 0.13 } },
 };
 
-const heroLineVariants = {
+const heroLine = {
   hidden: { opacity: 0, y: 22 },
   visible: {
     opacity: 1,
@@ -27,20 +24,6 @@ const heroLineVariants = {
     transition: { duration: 0.55, ease: [0.22, 1, 0.36, 1] as const },
   },
 };
-
-// Right column: feature card stagger
-
-const listVariants = {
-  hidden: {},
-  visible: {
-    transition: {
-      staggerChildren: 0.09,
-      // slight delay so hero text leads and cards follow
-      delayChildren: 0.18,
-    },
-  },
-};
-
 
 function HomeInner() {
   const router = useRouter();
@@ -60,7 +43,7 @@ function HomeInner() {
 
   if (activeMeta && activeStep === 'upload') {
     return (
-      <div className='relative z-10 flex flex-col min-h-screen'>
+      <div className='relative z-10 flex flex-col min-h-screen animate-fade-in'>
         <Header />
         <UploadStep feature={activeMeta} />
       </div>
@@ -73,22 +56,20 @@ function HomeInner() {
       <Header />
       <TwoColumnLayout
         left={
-          // Parent broadcasts hidden → visible with stagger to its children
           <motion.div
-            variants={heroContainerVariants}
+            variants={heroContainer}
             initial='hidden'
             animate='visible'
           >
             <motion.h1
-              variants={heroLineVariants}
+              variants={heroLine}
               className='text-4xl md:text-5xl xl:text-[64px] font-light text-app-text leading-tight mb-3'
             >
               Welcome to the
               <strong className='block font-bold'>QuizMe App</strong>
             </motion.h1>
-
             <motion.p
-              variants={heroLineVariants}
+              variants={heroLine}
               className='text-app-text-secondary italic text-base mt-4'
             >
               Pick a feature to get started.
@@ -96,14 +77,8 @@ function HomeInner() {
           </motion.div>
         }
         right={
-          // Parent broadcasts hidden → visible with stagger to Feature children
-          <motion.div
-            className='flex flex-col gap-3.5'
-            variants={listVariants}
-            initial='hidden'
-            animate='visible'
-          >
-            {FEATURES.map((feature) => (
+          <div className='flex flex-col gap-3.5'>
+            {FEATURES.map((feature, i) => (
               <Feature
                 key={feature.key}
                 title={feature.label}
@@ -111,10 +86,11 @@ function HomeInner() {
                 icon={feature.icon}
                 bgClass={feature.bgClass}
                 iconClass={feature.iconClass}
+                index={i}
                 onClick={() => handleSelectFeature(feature.key)}
               />
             ))}
-          </motion.div>
+          </div>
         }
       />
     </div>
