@@ -67,7 +67,7 @@ export default function TabLayout() {
           }}
         />
         <Tabs.Screen
-          name='quiz'
+          name='quiz/index'
           options={{
             title: 'Quiz',
             tabBarIcon: ({ color, size }) => (
@@ -75,7 +75,6 @@ export default function TabLayout() {
             ),
           }}
         />
-        <Tabs.Screen name='quiz/index' options={{ href: null }} />
         <Tabs.Screen name='quiz/options' options={{ href: null }} />
         <Tabs.Screen name='quiz/ready' options={{ href: null }} />
         <Tabs.Screen name='quiz/play' options={{ href: null }} />
