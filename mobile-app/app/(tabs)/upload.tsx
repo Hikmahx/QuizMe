@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system';
+import { readAsStringAsync } from 'expo-file-system/legacy';
 import * as Clipboard from 'expo-clipboard';
 import { WebView } from 'react-native-webview';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -93,8 +93,8 @@ function FilePreviewModal({
 
   useState(() => {
     if (isTxt) {
-      FileSystem.readAsStringAsync(file.uri, {
-        encoding: FileSystem.EncodingType.UTF8,
+      readAsStringAsync(file.uri, {
+        encoding: 'utf8',
       })
         .then((content) => {
           setText(content);
