@@ -287,7 +287,7 @@ def _call_analyze(prompt: str) -> dict:
     except (json.JSONDecodeError, Exception) as e:
         logger.error("analyze error: %s", e)
         return {"mismatch": False}
-
+   
 
 # Mode Detection
 
