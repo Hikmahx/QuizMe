@@ -227,7 +227,7 @@ export default function Summary() {
                 { backgroundColor: alpha(colors.success, 0.15) },
               ]}
             >
-              <Ionicons name='brain-outline' size={22} color={colors.success} />
+              <Ionicons name={'brain-outline' as any} size={22} color={colors.success} />
             </View>
             <View style={tw`flex-1`}>
               <Text medium size={14}>
