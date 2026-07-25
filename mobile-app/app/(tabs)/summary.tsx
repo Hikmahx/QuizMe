@@ -231,9 +231,6 @@ export default function Summary() {
                     size={14}
                     color={colors.appTextSecondary}
                   />
-                  <Text secondary size={12}>
-                    {copied ? 'Copied' : 'Copy'}
-                  </Text>
                 </Pressable>
               </View>
               <Text size={15} style={tw`leading-7`}>
