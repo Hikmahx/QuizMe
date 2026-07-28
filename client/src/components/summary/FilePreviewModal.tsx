@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { StoredFileMeta } from '@/types';
 import { fileExtension, extColourClass, formatFileSize } from '@/lib/storage';
+import CopyButton from '@/components/global/CopyButton';
 
 // Helpers
 
@@ -80,50 +81,6 @@ function mdToHtml(md: string): string {
     )
     .join('\n');
   return html;
-}
-
-// Copy button 
-
-function CopyButton({ text }: { text: string }) {
-  const [state, setState] = useState<'idle' | 'copied' | 'error'>('idle');
-
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setState('copied');
-      setTimeout(() => setState('idle'), 2200);
-    } catch {
-      setState('error');
-      setTimeout(() => setState('idle'), 2000);
-    }
-  };
-
-  const label =
-    state === 'copied' ? 'Copied!' : state === 'error' ? 'Failed' : 'Copy text';
-  const icon =
-    state === 'copied'
-      ? 'checkmark-outline'
-      : state === 'error'
-        ? 'close-outline'
-        : 'copy-outline';
-
-  return (
-    <button
-      onClick={handleCopy}
-      className={[
-        'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all duration-150',
-        state === 'copied'
-          ? 'bg-green-500/15 border-green-400/40 text-green-400'
-          : state === 'error'
-            ? 'bg-red-500/15 border-red-400/40 text-red-400'
-            : 'bg-app-card border-app-text-secondary/20 text-app-text-secondary hover:text-app-text hover:border-purple-400/50 hover:bg-purple-500/8',
-      ].join(' ')}
-      title='Copy to clipboard'
-    >
-      <ion-icon name={icon} style={{ fontSize: '13px' }} />
-      <span className="hidden sm:block">{label}</span>
-    </button>
-  );
 }
 
 // Content renderers
@@ -272,7 +229,12 @@ export default function FilePreviewModal({
 
           {/* Copy button — TXT and MD only */}
           {isTxt && rawText && !isDocxCompressed && (
-            <CopyButton text={rawText} />
+            <CopyButton
+              text={rawText}
+              label='Copy text'
+              copiedLabel='Copied!'
+              hideLabelOnMobile
+            />
           )}
 
           {/* Close */}
