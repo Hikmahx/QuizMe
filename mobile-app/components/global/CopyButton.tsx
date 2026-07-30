@@ -6,24 +6,13 @@ import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import tw from '@/lib/tw';
 
 interface CopyButtonProps {
-  /** Text copied to the clipboard on press. */
   text: string;
-  /** Label shown in the idle state. Default: 'Copy' */
   label?: string;
-  /** Label shown right after a successful copy. Default: 'Copied' */
   copiedLabel?: string;
-  /**
-   * 'subtle' — neutral bordered pill (used on the summary screen).
-   * 'pill' — filled primary/success pill (used in the upload file preview).
-   */
   variant?: 'subtle' | 'pill';
 }
 
-/**
- * Reusable "Copy to clipboard" button for the mobile app. Wraps
- * useCopyToClipboard so the Clipboard-writing logic lives in one place
- * instead of being re-implemented per screen.
- */
+
 export default function CopyButton({
   text,
   label = 'Copy',
