@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { View, ScrollView, Pressable, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import * as Clipboard from 'expo-clipboard';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/redux/store';
 import tw from '@/lib/tw';
@@ -14,6 +13,7 @@ import InfoList from '@/components/global/InfoList';
 import OptionCard from '@/components/global/OptionCard';
 import Btn from '@/components/global/Btn';
 import Card from '@/components/global/Card';
+import CopyButton from '@/components/global/CopyButton';
 import { useColors, alpha } from '@/hooks/useTheme';
 import { SummaryLength, SummaryStyle } from '@/types';
 import { LENGTH_OPTIONS, STYLE_OPTIONS } from '@/lib/summary-options';
@@ -32,17 +32,9 @@ export default function Summary() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [docIndex, setDocIndex] = useState(0);
-  const [copied, setCopied] = useState(false);
 
   const isMultiDoc = files.length > 1;
   const hasFiles = files.length > 0;
-
-  const handleCopy = async (text: string) => {
-    if (!text) return;
-    await Clipboard.setStringAsync(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
 
   const generate = async (chosenStyle?: SummaryStyle) => {
     setLoading(true);
@@ -213,25 +205,7 @@ export default function Summary() {
                 ) : (
                   <View />
                 )}
-                <Pressable
-                  onPress={() => handleCopy(current.summary)}
-                  style={({ pressed }) => [
-                    tw`flex-row items-center gap-1.5 rounded-lg px-3 py-1.5`,
-                    {
-                      borderWidth: 1,
-                      borderColor: colors.border,
-                      backgroundColor: pressed
-                        ? alpha(colors.appText, 0.05)
-                        : 'transparent',
-                    },
-                  ]}
-                >
-                  <Ionicons
-                    name={copied ? 'checkmark-outline' : 'copy-outline'}
-                    size={14}
-                    color={colors.appTextSecondary}
-                  />
-                </Pressable>
+                <CopyButton text={current.summary} />
               </View>
               <Text size={15} style={tw`leading-7`}>
                 {current.summary}
