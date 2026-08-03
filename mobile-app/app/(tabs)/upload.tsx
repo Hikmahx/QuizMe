@@ -10,7 +10,6 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import { readAsStringAsync } from 'expo-file-system/legacy';
-import * as Clipboard from 'expo-clipboard';
 import { WebView } from 'react-native-webview';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
@@ -31,6 +30,7 @@ import StepBadge from '@/components/global/StepBadge';
 import ProgressBar from '@/components/global/ProgressBar';
 import InfoList from '@/components/global/InfoList';
 import Btn from '@/components/global/Btn';
+import CopyButton from '@/components/global/CopyButton';
 import { useColors, alpha } from '@/hooks/useTheme';
 import { StoredFileMeta } from '@/types';
 import {
@@ -85,7 +85,6 @@ function FilePreviewModal({
   const colors = useColors();
   const [text, setText] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [copied, setCopied] = useState(false);
 
   const ext = getExt(file.name);
   const isTxt = ext === 'txt' || ext === 'md';
@@ -105,13 +104,6 @@ function FilePreviewModal({
       setLoading(false);
     }
   });
-
-  const handleCopy = async () => {
-    if (!text) return;
-    await Clipboard.setStringAsync(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2200);
-  };
 
   return (
     <Modal
@@ -154,34 +146,7 @@ function FilePreviewModal({
           </View>
 
           {isTxt && text && (
-            <Pressable
-              onPress={handleCopy}
-              style={[
-                tw`flex-row items-center gap-1.5 px-3 py-1.5 rounded-full`,
-                {
-                  borderWidth: 1.5,
-                  backgroundColor: copied
-                    ? alpha(colors.success, 0.14)
-                    : alpha(colors.primary, 0.1),
-                  borderColor: copied
-                    ? alpha(colors.success, 0.4)
-                    : alpha(colors.primary, 0.3),
-                },
-              ]}
-            >
-              <Ionicons
-                name={copied ? 'checkmark-outline' : 'copy-outline'}
-                size={13}
-                color={copied ? colors.success : colors.primary}
-              />
-              <Text
-                medium
-                size={12}
-                style={{ color: copied ? colors.success : colors.primary }}
-              >
-                {copied ? 'Copied!' : 'Copy'}
-              </Text>
-            </Pressable>
+            <CopyButton text={text} copiedLabel='Copied!' variant='pill' />
           )}
 
           <Pressable
