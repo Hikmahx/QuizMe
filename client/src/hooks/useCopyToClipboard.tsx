@@ -4,17 +4,7 @@ import { useCallback, useRef, useState } from 'react';
 
 export type CopyState = 'idle' | 'copied' | 'error';
 
-/**
- * Shared clipboard-copy logic, used anywhere a "Copy" button appears
- * (SummaryCard, FilePreviewModal, etc). Handles the modern Clipboard API
- * with a `document.execCommand('copy')` fallback for browsers/contexts
- * where `navigator.clipboard` isn't available, and exposes a small state
- * machine so callers can show "Copied"/"Failed" feedback without each
- * re-implementing the timeout logic.
- *
- * const { state, copy } = useCopyToClipboard();
- * <button onClick={() => copy(text)}>{state === 'copied' ? 'Copied' : 'Copy'}</button>
- */
+
 export function useCopyToClipboard(resetAfterMs = 2000) {
   const [state, setState] = useState<CopyState>('idle');
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
