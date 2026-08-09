@@ -78,7 +78,7 @@ function HomeInner() {
         }
         right={
           <div className='flex flex-col gap-3.5'>
-            {FEATURES.map((feature, i) => (
+            {FEATURES.map((feature) => (
               <Feature
                 key={feature.key}
                 title={feature.label}
@@ -86,7 +86,6 @@ function HomeInner() {
                 icon={feature.icon}
                 bgClass={feature.bgClass}
                 iconClass={feature.iconClass}
-                index={i}
                 onClick={() => handleSelectFeature(feature.key)}
               />
             ))}
