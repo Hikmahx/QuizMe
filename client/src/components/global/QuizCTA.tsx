@@ -25,18 +25,18 @@ export default function QuizCTA({ variant = 'full' }: QuizCTAProps) {
         onClick={handleQuiz}
       >
         <div className='flex items-center gap-3'>
-          {/* <div className='w-10 h-10 rounded-[10px] flex items-center justify-center text-lg flex-shrink-0'>
+          <div className='w-10 h-10 rounded-[10px] flex items-center justify-center text-lg flex-shrink-0'>
             <ion-icon
-              name='brain-outline'
+              name='school-outline'
               style={{
                 fontSize: '20px',
                 color: 'var(--color-app-text)',
               }}
             />
-          </div> */}
+          </div>
           <div>
             <p className='text-app-text font-semibold text-sm'>
-              Ready to test yourself?
+              Ready to test yourself? 
             </p>
             <p className='text-app-text-secondary text-xs mt-0.5'>
               Quiz yourself on this material
