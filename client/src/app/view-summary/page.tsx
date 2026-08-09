@@ -9,6 +9,7 @@ import InfoList from '@/components/global/InfoList';
 import QuizCTA from '@/components/global/QuizCTA';
 import SummaryCard from '@/components/summary/SummaryCard';
 import DocNavigator from '@/components/summary/DocNavigator';
+import ConfirmModal from '@/components/global/ConfirmModal';
 import { FEATURE_MAP } from '@/lib/features';
 import { useSummaryFlow } from '@/hooks/useSummaryFlow';
 
@@ -36,6 +37,7 @@ export default function ViewSummaryPage() {
   } = useSummaryFlow();
 
   const [docIdx, setDocIdx] = useState(0);
+  const [showUploadDifferentConfirm, setShowUploadDifferentConfirm] = useState(false);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -115,6 +117,11 @@ export default function ViewSummaryPage() {
   const handleUploadDifferent = () => {
     clearFlow();
     router.push('/?selected=view-summary/upload');
+  };
+
+  const confirmUploadDifferent = () => {
+    setShowUploadDifferentConfirm(false);
+    handleUploadDifferent();
   };
 
   const rightContent = (() => {
@@ -249,7 +256,7 @@ export default function ViewSummaryPage() {
         <QuizCTA variant='compact' />
 
         <button
-          onClick={handleUploadDifferent}
+          onClick={() => setShowUploadDifferentConfirm(true)}
           className='w-full flex items-center justify-center gap-2 border border-app-text-secondary/20 rounded-xl py-3 text-app-text-secondary text-sm hover:bg-app-text-secondary/7 hover:border-app-text-secondary/40 hover:text-app-text transition-all'
         >
           <ion-icon
@@ -267,6 +274,20 @@ export default function ViewSummaryPage() {
       <Header />
       <Breadcrumb feature={feature} crumbs={crumbs} />
       <TwoColumnLayout left={leftContent} right={rightContent} />
+      {showUploadDifferentConfirm && (
+        <ConfirmModal
+          message={
+            <>
+              Using different files will discard{' '}
+              <strong className='text-app-text'>this summary</strong> and
+              take you back to upload. This can't be undone.
+            </>
+          }
+          confirmLabel='Use different files'
+          onConfirm={confirmUploadDifferent}
+          onCancel={() => setShowUploadDifferentConfirm(false)}
+        />
+      )}
     </div>
   );
 }
