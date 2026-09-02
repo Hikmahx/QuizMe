@@ -32,15 +32,6 @@ export default function TabLayout() {
           }}
         />
         <Tabs.Screen
-          name='upload'
-          options={{
-            title: 'Upload',
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name='cloud-upload-outline' size={size} color={color} />
-            ),
-          }}
-        />
-        <Tabs.Screen
           name='summary'
           options={{
             title: 'Summary',
@@ -56,7 +47,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name='qa'
           options={{
-            title: 'Ask AI',
+            title: 'Chat',
             tabBarIcon: ({ color, size }) => (
               <Ionicons
                 name='chatbubble-ellipses-outline'
@@ -80,6 +71,9 @@ export default function TabLayout() {
         <Tabs.Screen name='quiz/play' options={{ href: null }} />
         <Tabs.Screen name='quiz/score' options={{ href: null }} />
         <Tabs.Screen name='quiz/feedback' options={{ href: null }} />
+        {/* Upload is reached via the file-actions button in the header, not
+            a bottom tab, but stays registered here so it's routable. */}
+        <Tabs.Screen name='upload' options={{ href: null }} />
       </Tabs>
     </SafeAreaProvider>
   );
