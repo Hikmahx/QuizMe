@@ -4,8 +4,15 @@ import { useState } from 'react';
 import tw from '@/lib/tw';
 import { Text } from '@/components/global/Themed';
 import { useColors, useIsDark } from '@/hooks/useTheme';
+import FileActionsMenu from '@/components/global/FileActionsMenu';
 
-export default function Header() {
+interface Props {
+  // Set on the Home and Upload screens, where a file-actions button
+  // doesn't make sense.
+  hideFileActions?: boolean;
+}
+
+export default function Header({ hideFileActions }: Props) {
   const colors  = useColors();
   const isDark  = useIsDark();
   const [dark, setDark] = useState(isDark);
@@ -31,6 +38,13 @@ export default function Header() {
         </Pressable>
 
         <Ionicons name="moon-outline" size={18} color={colors.appTextSecondary} />
+
+        {!hideFileActions && (
+          <>
+            <View style={[tw`w-px h-5 mx-0.5`, { backgroundColor: colors.border }]} />
+            <FileActionsMenu />
+          </>
+        )}
       </View>
     </View>
   );
