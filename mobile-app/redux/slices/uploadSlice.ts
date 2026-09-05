@@ -6,6 +6,10 @@ interface UploadState {
   collectionId: string | null;
   status: 'idle' | 'uploading' | 'done' | 'error';
   error: string | null;
+  // Bumped whenever files are wiped via clearFiles (e.g. the "Change files" /
+  // "Remove files" actions). Summary/Chat/Quiz screens watch this to reset
+  // their own local step/answer state back to defaults when it changes.
+  fileVersion: number;
 }
 
 const initialState: UploadState = {
@@ -13,6 +17,7 @@ const initialState: UploadState = {
   collectionId: null,
   status: 'idle',
   error: null,
+  fileVersion: 0,
 };
 
 const uploadSlice = createSlice({
@@ -34,7 +39,9 @@ const uploadSlice = createSlice({
     },
 
     clearFiles(state) {
+      const nextVersion = state.fileVersion + 1;
       Object.assign(state, initialState);
+      state.fileVersion = nextVersion;
     },
 
     setCollectionId(state, { payload }: PayloadAction<string>) {
