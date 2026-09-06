@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { View, ScrollView, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -84,8 +84,19 @@ export default function QuizOptions() {
   const { difficulty, questionCount, questionType, inputMode } = useSelector(
     (state: RootState) => state.quiz,
   );
+  const { fileVersion } = useSelector((state: RootState) => state.upload);
 
   const [step, setStep] = useState<Step>('difficulty');
+
+  // Files were changed/removed via the header menu — the quiz selections
+  // were already reset to their first option in redux; jump this screen's
+  // local step back to the start too.
+  const prevFileVersion = useRef(fileVersion);
+  useEffect(() => {
+    if (fileVersion === prevFileVersion.current) return;
+    prevFileVersion.current = fileVersion;
+    setStep('difficulty');
+  }, [fileVersion]);
 
   const isTheory = questionType === 'theory';
   const totalSteps = isTheory ? 4 : 3;
