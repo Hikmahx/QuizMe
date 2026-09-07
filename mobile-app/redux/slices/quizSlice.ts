@@ -115,6 +115,25 @@ const quizSlice = createSlice({
       state.feedbacks = [];
       state.overallPct = null;
     },
+
+    // Used when the source files change (via "Change files" / "Remove
+    // files"): unlike resetQuiz (used for "retake"), this also puts the
+    // difficulty/count/type/input selections back on their first option,
+    // since the quiz options step is now stale for the new file set.
+    resetQuizForFileChange(state) {
+      state.difficulty = 'easy';
+      state.questionCount = 10;
+      state.questionType = 'mcq';
+      state.inputMode = 'written';
+      state.questions = [];
+      state.answers = [];
+      state.currentIndex = 0;
+      state.loadState = 'idle';
+      state.loadError = null;
+      state.collectionId = null;
+      state.feedbacks = [];
+      state.overallPct = null;
+    },
   },
 });
 
@@ -132,6 +151,7 @@ export const {
   setFeedbacks,
   setOverallPct,
   resetQuiz,
+  resetQuizForFileChange,
 } = quizSlice.actions;
 
 export default quizSlice.reducer;
