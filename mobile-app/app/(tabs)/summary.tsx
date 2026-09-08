@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { View, ScrollView, Pressable, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/redux/store';
 import tw from '@/lib/tw';
@@ -23,7 +24,8 @@ type Step = 'length' | 'style' | 'result';
 
 export default function Summary() {
   const colors = useColors();
-  const { files } = useSelector((state: RootState) => state.upload);
+  const router = useRouter();
+  const { files, fileVersion } = useSelector((state: RootState) => state.upload);
 
   const [step, setStep] = useState<Step>('length');
   const [length, setLength] = useState<SummaryLength | null>('medium');
@@ -32,6 +34,20 @@ export default function Summary() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [docIndex, setDocIndex] = useState(0);
+
+  // Files were changed/removed via the header menu — jump back to the
+  // first step with the first option selected, and drop any stale result.
+  const prevFileVersion = useRef(fileVersion);
+  useEffect(() => {
+    if (fileVersion === prevFileVersion.current) return;
+    prevFileVersion.current = fileVersion;
+    setStep('length');
+    setLength('short');
+    setStyle('combined');
+    setResult(null);
+    setError(null);
+    setDocIndex(0);
+  }, [fileVersion]);
 
   const isMultiDoc = files.length > 1;
   const hasFiles = files.length > 0;
@@ -358,9 +374,10 @@ export default function Summary() {
         </Text>
 
         {!hasFiles && (
-          <View
+          <Pressable
+            onPress={() => router.push('/(tabs)/upload')}
             style={[
-              tw`rounded-2xl p-3.5 mb-6`,
+              tw`flex-row items-center justify-between rounded-2xl p-3.5 mb-6`,
               {
                 backgroundColor: alpha('#f59e0b', 0.1),
                 borderWidth: 1,
@@ -368,13 +385,16 @@ export default function Summary() {
               },
             ]}
           >
-            <Text medium size={13} style={tw`mb-1`}>
-              No documents uploaded
-            </Text>
-            <Text secondary size={13}>
-              Go to the Upload tab to add your documents first.
-            </Text>
-          </View>
+            <View style={tw`flex-1 pr-2`}>
+              <Text medium size={13} style={tw`mb-1`}>
+                No documents uploaded
+              </Text>
+              <Text secondary size={13}>
+                Tap to add your documents first.
+              </Text>
+            </View>
+            <Ionicons name='chevron-forward' size={16} color={colors.appTextSecondary} />
+          </Pressable>
         )}
 
         <InfoList
