@@ -120,6 +120,11 @@ export default function QA() {
   const abortRef = useRef<AbortController | null>(null);
   const initDone = useRef(false);
 
+  // Identifies the actual file set (not just its redux array reference), so
+  // we can tell "files really changed" apart from unrelated re-renders.
+  const filesSignature = files.map((f) => `${f.name}:${f.size}`).join('|');
+  const prevSignature = useRef(filesSignature);
+
   useEffect(() => {
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
   }, [messages]);
@@ -127,17 +132,35 @@ export default function QA() {
   useEffect(() => {
     if (initDone.current) return;
     initDone.current = true;
-    initialiseChat();
+    initialiseChat('default');
   }, []);
 
-  async function initialiseChat() {
+  // Files were changed (via the header menu's Change/Remove files, or by
+  // adding/removing files on the Upload screen) — drop the current
+  // conversation and start over on the default mode with the new files.
+  useEffect(() => {
+    if (filesSignature === prevSignature.current) return;
+    prevSignature.current = filesSignature;
+    if (!initDone.current) return; // covered by the mount effect above
+    abortRef.current?.abort();
+    collectionIdRef.current = null;
+    setStreaming(false);
+    setInputText('');
+    setMessages([]);
+    setMode('default');
+    setInitState('idle');
+    initialiseChat('default');
+  }, [filesSignature]);
+
+  async function initialiseChat(modeOverride?: Mode) {
+    const activeMode = modeOverride ?? mode;
     if (!files.length) {
       setMessages([
         {
           id: nextId(),
           role: 'assistant',
           content:
-            'No documents uploaded yet. Head to the Upload tab to add your files, then come back here to chat.',
+            'No documents uploaded yet. Tap the upload icon above to add your files, then come back here to chat.',
         },
       ]);
       return;
@@ -156,10 +179,10 @@ export default function QA() {
         [
           {
             role: 'user',
-            content: `Greet the user concisely: "${GREETINGS[mode]}"`,
+            content: `Greet the user concisely: "${GREETINGS[activeMode]}"`,
           },
         ],
-        mode,
+        activeMode,
         collectionId,
       );
     } catch {
