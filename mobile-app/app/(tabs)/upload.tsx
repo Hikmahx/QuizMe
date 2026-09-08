@@ -338,7 +338,7 @@ export default function Upload() {
 
   return (
     <Screen>
-      <Header />
+      <Header hideFileActions />
       <ScrollView
         style={tw`flex-1`}
         contentContainerStyle={tw`px-6 pb-8`}
