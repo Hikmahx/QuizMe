@@ -84,7 +84,9 @@ function FilePreviewModal({
 }) {
   const colors = useColors();
   const [text, setText] = useState<string | null>(null);
+  const [pdfDataUri, setPdfDataUri] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [previewError, setPreviewError] = useState(false);
 
   const ext = getExt(file.name);
   const isTxt = ext === 'txt' || ext === 'md';
@@ -100,6 +102,22 @@ function FilePreviewModal({
           setLoading(false);
         })
         .catch(() => setLoading(false));
+    } else if (isPdf) {
+      // iOS's WKWebView can't reliably load a local file:// URI for a PDF —
+      // it falls back to Linking.openURL(file://...), which always fails
+      // since no app claims the file:// scheme ("Unable to open URL").
+      // Reading it as base64 and handing WebView a data: URI avoids that.
+      readAsStringAsync(file.uri, {
+        encoding: 'base64',
+      })
+        .then((base64) => {
+          setPdfDataUri(`data:application/pdf;base64,${base64}`);
+          setLoading(false);
+        })
+        .catch(() => {
+          setPreviewError(true);
+          setLoading(false);
+        });
     } else {
       setLoading(false);
     }
@@ -164,14 +182,26 @@ function FilePreviewModal({
           <View style={tw`flex-1 items-center justify-center`}>
             <ActivityIndicator color={colors.primary} size='large' />
           </View>
-        ) : isPdf ? (
+        ) : isPdf && pdfDataUri ? (
           <WebView
-            source={{ uri: file.uri }}
+            source={{ uri: pdfDataUri }}
             style={tw`flex-1`}
-            allowFileAccess
-            allowFileAccessFromFileURLs
-            allowUniversalAccessFromFileURLs
+            originWhitelist={['*']}
           />
+        ) : isPdf && previewError ? (
+          <View style={tw`flex-1 items-center justify-center p-8 gap-4`}>
+            <Ionicons
+              name='alert-circle-outline'
+              size={48}
+              color={colors.appTextSecondary}
+            />
+            <Text medium size={16}>
+              Preview unavailable
+            </Text>
+            <Text secondary size={13} style={tw`text-center`}>
+              This PDF couldn't be loaded for preview.
+            </Text>
+          </View>
         ) : ext === 'md' && text ? (
           <WebView source={{ html: mdToHtml(text) }} style={tw`flex-1`} />
         ) : text ? (
