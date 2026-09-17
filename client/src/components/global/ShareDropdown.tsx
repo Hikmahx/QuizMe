@@ -96,10 +96,9 @@ export default function ShareDropdown({
         aria-label='Share'
         aria-haspopup='menu'
         aria-expanded={open}
-        className='flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all duration-150 border-app-text-secondary/20 text-app-text-secondary hover:bg-app-text-secondary/7 hover:border-app-text-secondary/40 hover:text-app-text shrink-0'
+        className='flex items-center cursor-pointer px-2 py-1.5 rounded-lg border transition-all duration-150 border-app-text-secondary/20 text-app-text-secondary hover:bg-app-text-secondary/7 hover:border-app-text-secondary/40 hover:text-app-text shrink-0'
       >
-        <ion-icon name='share-social-outline' style={{ fontSize: '14px' }} />{' '}
-        <span>Share</span>
+        <ion-icon name='share-social-outline' style={{ fontSize: '14px' }} />
       </button>
 
       {open && (
