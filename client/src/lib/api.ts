@@ -107,3 +107,39 @@ export async function uploadFiles(
   }
   return res.json();
 }
+
+export interface EmailShareRequest {
+  to: string;
+  summary: string;
+  doc_name?: string;
+}
+
+export interface EmailShareResponse {
+  success: boolean;
+  message: string;
+}
+
+/**
+ * POST /api/share/email
+ * Sends the given summary text to `to` via the backend's mail service.
+ */
+export async function shareSummaryByEmail(
+  to: string,
+  summary: string,
+  docName?: string,
+): Promise<EmailShareResponse> {
+  const body: EmailShareRequest = { to, summary, doc_name: docName };
+
+  const res = await fetch(`${BASE_URL}/api/share/email`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ detail: 'Unknown error' }));
+    throw new Error(error.detail ?? `Request failed with status ${res.status}`);
+  }
+
+  return res.json();
+}

@@ -1,6 +1,10 @@
+'use client';
+
+import { useState } from 'react';
 import { renderMarkdown } from "@/utils/helpers";
 import CopyButton from "@/components/global/CopyButton";
 import ShareDropdown from "@/components/global/ShareDropdown";
+import EmailShareModal from "@/components/summary/EmailShareModal";
 
 interface SummaryCardProps {
   title: string;
@@ -9,6 +13,7 @@ interface SummaryCardProps {
 
 export default function SummaryCard({ title, paragraphs }: SummaryCardProps) {
   const text = paragraphs.filter(Boolean).join('\n\n');
+  const [showEmailModal, setShowEmailModal] = useState(false);
 
   return (
     <div className='dark-bg rounded-2xl p-8 pt-0 text-app-text-secondary leading-relaxed text-[15px] h-full bg-app-card max-h-[80vh] overflow-y-scroll'>
@@ -16,7 +21,7 @@ export default function SummaryCard({ title, paragraphs }: SummaryCardProps) {
         <h3 className='text-app-text text-lg font-semibold'>{title}</h3>
         <div className='flex items-center gap-2'>
           <CopyButton text={text} />
-          <ShareDropdown />
+          <ShareDropdown onEmail={() => setShowEmailModal(true)} />
         </div>
       </div>
       {paragraphs.filter(Boolean).map((p, i) => (
@@ -24,6 +29,14 @@ export default function SummaryCard({ title, paragraphs }: SummaryCardProps) {
           dangerouslySetInnerHTML={{ __html: renderMarkdown(p) }}>
         </p>
       ))}
+
+      {showEmailModal && (
+        <EmailShareModal
+          summary={text}
+          docName={title}
+          onClose={() => setShowEmailModal(false)}
+        />
+      )}
     </div>
   );
 }
