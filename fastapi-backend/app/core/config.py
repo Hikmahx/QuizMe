@@ -71,6 +71,7 @@ class Settings(BaseSettings):
     MAIL_PASSWORD:  str = ""
     MAIL_FROM:      str = ""
     MAIL_FROM_NAME: str = "QuizMe"
+    MAIL_REPLY_TO:  str = ""  # optional — where replies go instead of MAIL_FROM
     MAIL_SERVER:    str = "smtp.gmail.com"
     MAIL_PORT:      int = 587
     MAIL_STARTTLS:  bool = True
