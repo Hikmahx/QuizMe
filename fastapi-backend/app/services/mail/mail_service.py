@@ -1,9 +1,17 @@
 """
 Mail service for QuizMe.
+
+fastapi-mail changed to smtplib due to compatibility errors: fastapi-mail 1.6.8
+requires pydantic>=2.12.5, which conflicts with crewai's pydantic~=2.11.9
+pin already in requirements.txt. smtplib has zero dependencies, so it
+can't collide with anything else in this project.
 """
+import asyncio
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 from pathlib import Path
 
-from fastapi_mail import ConnectionConfig, FastMail, MessageSchema, MessageType
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from app.core.config import get_settings
@@ -18,20 +26,30 @@ _jinja_env = Environment(
     autoescape=select_autoescape(["html"]),
 )
 
-_mail_config = ConnectionConfig(
-    MAIL_USERNAME=settings.MAIL_USERNAME,
-    MAIL_PASSWORD=settings.MAIL_PASSWORD,
-    MAIL_FROM=settings.MAIL_FROM,
-    MAIL_FROM_NAME=settings.MAIL_FROM_NAME,
-    MAIL_PORT=settings.MAIL_PORT,
-    MAIL_SERVER=settings.MAIL_SERVER,
-    MAIL_STARTTLS=settings.MAIL_STARTTLS,
-    MAIL_SSL_TLS=settings.MAIL_SSL_TLS,
-    USE_CREDENTIALS=True,
-    VALIDATE_CERTS=True,
-)
 
-_fast_mail = FastMail(_mail_config)
+def _send_sync(to: str, subject: str, html: str) -> None:
+    """The actual blocking SMTP call — runs off the event loop via to_thread."""
+    message = MIMEMultipart("alternative")
+    message["Subject"] = subject
+    message["From"] = f"{settings.MAIL_FROM_NAME} <{settings.MAIL_FROM}>"
+    message["To"] = to
+    message["Reply-To"] = settings.MAIL_REPLY_TO or settings.MAIL_FROM
+    message.attach(MIMEText(html, "html"))
+
+    if settings.MAIL_SSL_TLS:
+        # Implicit TLS from the start of the connection (typically port 465)
+        smtp = smtplib.SMTP_SSL(settings.MAIL_SERVER, settings.MAIL_PORT)
+    else:
+        # Plain connection upgraded via STARTTLS (typically port 587)
+        smtp = smtplib.SMTP(settings.MAIL_SERVER, settings.MAIL_PORT)
+
+    try:
+        if settings.MAIL_STARTTLS and not settings.MAIL_SSL_TLS:
+            smtp.starttls()
+        smtp.login(settings.MAIL_USERNAME, settings.MAIL_PASSWORD)
+        smtp.sendmail(settings.MAIL_FROM, [to], message.as_string())
+    finally:
+        smtp.quit()
 
 
 async def send_mail(*, to: str, subject: str, template: str, context: dict) -> None:
@@ -53,11 +71,6 @@ async def send_mail(*, to: str, subject: str, template: str, context: dict) -> N
     jinja_template = _jinja_env.get_template(f"views/{template}.html")
     html = jinja_template.render(**context)
 
-    message = MessageSchema(
-        subject=subject,
-        recipients=[to],
-        body=html,
-        subtype=MessageType.html,
-    )
-
-    await _fast_mail.send_message(message)
+    # smtplib is blocking — offload it, same pattern as the TTL cleanup
+    # loop in main.py (asyncio.to_thread(cleanup_stale_collections)).
+    await asyncio.to_thread(_send_sync, to, subject, html)
