@@ -66,6 +66,16 @@ class Settings(BaseSettings):
     CARTESIA_VOICE_ID:  str = "a0e99841-438c-4a64-b679-ae501e7d6091"
     EDGE_TTS_VOICE:     str = "en-US-JennyNeural"
 
+    # Email settings
+    MAIL_USERNAME:  str = ""
+    MAIL_PASSWORD:  str = ""
+    MAIL_FROM:      str = ""
+    MAIL_FROM_NAME: str = "QuizMe"
+    MAIL_SERVER:    str = "smtp.gmail.com"
+    MAIL_PORT:      int = 587
+    MAIL_STARTTLS:  bool = True
+    MAIL_SSL_TLS:   bool = False
+
     @property
     def LLM_PROVIDER_ORDER(self) -> List[str]:
         return [p.strip() for p in self.LLM_PROVIDER_ORDER_STR.split(",") if p.strip()]

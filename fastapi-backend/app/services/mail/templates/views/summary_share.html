@@ -1,0 +1,16 @@
+{% include "partials/header.html" %}
+
+<div style="font-family: Arial, Helvetica, sans-serif; color:#222; padding: 0 20px;">
+  <p>Hi{% if recipient_name %} {{ recipient_name }}{% endif %},</p>
+  <p>{{ sender_name }} shared a document summary with you from QuizMe:</p>
+
+  {% if doc_name %}
+  <p style="margin-bottom:4px;"><strong>{{ doc_name }}</strong></p>
+  {% endif %}
+
+  <div style="background:#f7f7f7; border-left:4px solid #222; padding:16px; margin:16px 0; white-space:pre-line; line-height:1.5;">
+{{ summary }}
+  </div>
+</div>
+
+{% include "partials/footer.html" %}

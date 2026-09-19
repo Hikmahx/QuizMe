@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 
 from app.core.config import get_settings
 from app.core.database import init_db
-from app.api import upload, summary, voice
+from app.api import upload, summary, voice, share
 from app.api import quiz, qa
 from app.rag.vectordb import cleanup_stale_collections
 
@@ -71,6 +71,7 @@ app.include_router(summary.router, prefix="/api/summary", tags=["Summary"])
 app.include_router(voice.router, prefix="/api/voice", tags=["Voice"])
 app.include_router(quiz.router, prefix="/api/quiz", tags=["Quiz"])
 app.include_router(qa.router, prefix="/api/qa", tags=["Q&A"])
+app.include_router(share.router, prefix="/api/share", tags=["Share"])
 
 
 @app.get("/")
