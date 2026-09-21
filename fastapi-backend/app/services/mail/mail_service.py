@@ -1,11 +1,9 @@
 """
 Mail service for QuizMe.
 """
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 from pathlib import Path
 
-import aiosmtplib
+import httpx
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from app.core.config import get_settings
@@ -20,10 +18,12 @@ _jinja_env = Environment(
     autoescape=select_autoescape(["html"]),
 )
 
+BREVO_API_URL = "https://api.brevo.com/v3/smtp/email"
+
 
 async def send_mail(*, to: str, subject: str, template: str, context: dict) -> None:
     """
-    Render `templates/views/{template}.html` with `context` and send it.
+    Render `templates/views/{template}.html` with `context` and send it via Brevo.
 
     Usage:
         await send_mail(
@@ -40,22 +40,25 @@ async def send_mail(*, to: str, subject: str, template: str, context: dict) -> N
     jinja_template = _jinja_env.get_template(f"views/{template}.html")
     html = jinja_template.render(**context)
 
-    message = MIMEMultipart("alternative")
-    message["Subject"] = subject
-    message["From"] = f"{settings.MAIL_FROM_NAME} <{settings.MAIL_FROM}>"
-    message["To"] = to
-    message["Reply-To"] = settings.MAIL_REPLY_TO or settings.MAIL_FROM
-    message.attach(MIMEText(html, "html"))
+    payload = {
+        "sender": {
+            "name": settings.MAIL_FROM_NAME,
+            "email": settings.MAIL_FROM,
+        },
+        "to": [{"email": to}],
+        "subject": subject,
+        "htmlContent": html,
+    }
 
-    await aiosmtplib.send(
-        message,
-        sender=settings.MAIL_FROM,
-        recipients=[to],
-        hostname=settings.MAIL_SERVER,
-        port=settings.MAIL_PORT,
-        username=settings.MAIL_USERNAME,
-        password=settings.MAIL_PASSWORD,
-        start_tls=settings.MAIL_STARTTLS,
-        use_tls=settings.MAIL_SSL_TLS,
-        timeout=10,          # fail fast if the network is unreachable
-    )
+    if settings.MAIL_REPLY_TO:
+        payload["replyTo"] = {"email": settings.MAIL_REPLY_TO}
+
+    headers = {
+        "api-key": settings.BREVO_API_KEY,
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+    }
+
+    async with httpx.AsyncClient(timeout=15) as client:
+        response = await client.post(BREVO_API_URL, json=payload, headers=headers)
+        response.raise_for_status()

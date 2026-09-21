@@ -66,16 +66,11 @@ class Settings(BaseSettings):
     CARTESIA_VOICE_ID:  str = "a0e99841-438c-4a64-b679-ae501e7d6091"
     EDGE_TTS_VOICE:     str = "en-US-JennyNeural"
 
-    # Email settings
-    MAIL_USERNAME:  str = ""
-    MAIL_PASSWORD:  str = ""
-    MAIL_FROM:      str = ""
+    # Email settings (Brevo HTTP API — works over port 443, no SMTP needed)
+    BREVO_API_KEY:  str = ""
+    MAIL_FROM:      str = ""   # the sender email you verified in Brevo
     MAIL_FROM_NAME: str = "QuizMe"
     MAIL_REPLY_TO:  str = ""  # optional — where replies go instead of MAIL_FROM
-    MAIL_SERVER:    str = "smtp.gmail.com"
-    MAIL_PORT:      int = 587
-    MAIL_STARTTLS:  bool = True
-    MAIL_SSL_TLS:   bool = False
 
     @property
     def LLM_PROVIDER_ORDER(self) -> List[str]:
