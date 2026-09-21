@@ -18,7 +18,7 @@ export default function SummaryCard({ title, paragraphs }: SummaryCardProps) {
   return (
     <div className='dark-bg rounded-2xl p-8 pt-0 text-app-text-secondary leading-relaxed text-[15px] h-full bg-app-card max-h-[80vh] overflow-y-scroll'>
       <div className='flex items-center justify-between gap-3 sticky top-0 py-4 bg-app-card z-10'>
-        <h3 className='text-app-text text-lg font-semibold'>{title}</h3>
+        <h3 className='text-app-text text-lg font-semibold truncate'>{title}</h3>
         <div className='flex items-center gap-2'>
           <CopyButton text={text} />
           <ShareDropdown onEmail={() => setShowEmailModal(true)} />
