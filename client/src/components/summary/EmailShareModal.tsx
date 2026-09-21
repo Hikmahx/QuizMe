@@ -64,7 +64,7 @@ export default function EmailShareModal({ summary, docName, onClose }: EmailShar
             <p className='text-app-text-secondary text-sm leading-relaxed mb-4'>
               {docName ? (
                 <>
-                  Sends <strong className='text-app-text'>{docName}</strong>'s summary as-is.
+                  Sends <strong className='text-app-text break-words'>{docName}</strong>'s summary as-is.
                 </>
               ) : (
                 "Sends this summary as-is."
