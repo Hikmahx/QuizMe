@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from 'react';
 
 interface ShareDropdownProps {
   onEmail?: () => void;
-  onShareX?: () => void;
   onShareLinkedIn?: () => void;
   onShareImage?: () => void;
   className?: string;
@@ -21,7 +20,6 @@ interface ShareOption {
 
 export default function ShareDropdown({
   onEmail,
-  onShareX,
   onShareLinkedIn,
   onShareImage,
   className = '',
@@ -55,16 +53,6 @@ export default function ShareDropdown({
         onEmail?.();
       },
       comingSoon: !onEmail,
-    },
-    {
-      key: 'x',
-      label: 'X',
-      icon: 'logo-twitter',
-      onSelect: () => {
-        setOpen(false);
-        onShareX?.();
-      },
-      comingSoon: !onShareX,
     },
     {
       key: 'linkedin',
