@@ -6,6 +6,7 @@ interface ShareDropdownProps {
   onEmail?: () => void;
   onShareLinkedIn?: () => void;
   onShareImage?: () => void;
+  imageDisabledReason?: string;
   className?: string;
 }
 
@@ -16,12 +17,14 @@ interface ShareOption {
   onSelect: () => void;
   // REMOVE AFTER ALL IMPLEMENTATIONS ARE DONE
   comingSoon?: boolean;
+  disabledLabel?: string;
 }
 
 export default function ShareDropdown({
   onEmail,
   onShareLinkedIn,
   onShareImage,
+  imageDisabledReason,
   className = '',
 }: ShareDropdownProps) {
   const [open, setOpen] = useState(false);
@@ -73,6 +76,7 @@ export default function ShareDropdown({
         onShareImage?.();
       },
       comingSoon: !onShareImage,
+      disabledLabel: imageDisabledReason,
     },
   ];
 
@@ -106,7 +110,7 @@ export default function ShareDropdown({
               <span className='flex-1'>{opt.label}</span>
               {opt.comingSoon && (
                 <span className='text-[10px] uppercase tracking-wide text-app-text-secondary/60'>
-                  Soon
+                  {opt.disabledLabel ?? 'Soon'}
                 </span>
               )}
             </button>

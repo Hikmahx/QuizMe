@@ -166,6 +166,7 @@ export default function ViewSummaryPage() {
         <SummaryCard
           title={current.doc_name}
           paragraphs={summaryToParagraphs(current.summary)}
+          length={length}
         />
       );
     }
@@ -176,6 +177,7 @@ export default function ViewSummaryPage() {
       <SummaryCard
         title={isCombined ? 'Combined Summary' : first.doc_name}
         paragraphs={summaryToParagraphs(first.summary)}
+        length={length}
       />
     );
   })();
