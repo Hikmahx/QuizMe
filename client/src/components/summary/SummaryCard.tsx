@@ -30,7 +30,7 @@ export default function SummaryCard({ title, paragraphs, length }: SummaryCardPr
           <ShareDropdown
             onEmail={() => setShowEmailModal(true)}
             onShareImage={imageShareAllowed ? () => setShowImageModal(true) : undefined}
-            imageDisabledReason={imageShareAllowed ? undefined : 'Short/medium only'}
+            imageDisabledReason={imageShareAllowed ? undefined : 'disabled'}
           />
         </div>
       </div>
