@@ -112,6 +112,18 @@ Quiz CTA available on every result page
   ![Doc-by-doc Summary](./client/public/readme/quizme-doc-by-doc.png)
 - Quiz CTA in left column after result
 - "Use different files" button clears state and returns to upload
+
+#### Share
+
+A share icon sits next to the Copy button on every summary, opening a dropdown with:
+
+- **Email** — opens a modal for a recipient address, sends the summary as a styled HTML email. Backend delivery goes through Resend's HTTPS API rather than SMTP, since Hugging Face Spaces (where the API is hosted) blocks outbound SMTP ports entirely.
+- **LinkedIn** — not yet implemented; shown disabled in the dropdown.
+- **Share as image** — renders the summary as a downloadable PNG (Canvas, styled to match the app's theme), with a native device/browser share option where supported.
+  - Summaries over **150 words** trigger a warning modal explaining the image will be truncated, with the option to continue or cancel.
+  - Only available for **short** and **medium** summaries — disabled for **long**, since those don't produce a reasonably-sized shareable image.
+- An **X (Twitter)** option was considered and dropped — summaries generally run too long for a tweet-length post to make sense without significant truncation.
+
 ---
 
 ### 2. Ask Questions
@@ -281,6 +293,8 @@ The **"Quiz yourself"** button is a persistent feature across all pages — not 
 - **FAQ Generator** — Auto-generate common questions from the document
 - **DocInsight Mode** — Upload + Summary + Q&A + Key Points in one flow
 - **Smart Mode** — AI agent decides what to do based on user intent
+- **Multi-language support (i18n)** — planned via `next-intl`, App Router-native
+- **Browser extension** — built with Plasmo; summarizes the current page's content, with Default/Short/Medium/Long modes, calling the existing summary API
 
 ---
 
@@ -298,6 +312,7 @@ The **"Quiz yourself"** button is a persistent feature across all pages — not 
 - FastAPI + Uvicorn
 - SQLAlchemy + psycopg2 (PostgreSQL ORM)
 - Supabase (hosted PostgreSQL + pgvector)
+- Brevo — transactional email (HTTPS API) for the Share > Email feature
 
 ## AI / ML
 
@@ -436,6 +451,9 @@ GROQ_API_KEY=your_groq_key
 # Optional — leave empty to use local fallbacks
 ASSEMBLYAI_API_KEY=
 CARTESIA_API_KEY=
+
+# Share > Email (Resend — see README section under View Summary > Share)
+RESEND_API_KEY=
 ```
 
 Run the Supabase SQL setup (once):
