@@ -105,21 +105,28 @@ export async function generateSummaryImage({
 }: GenerateImageOptions): Promise<string> {
   const fontFamily = await loadRubik();
 
-  // Measure pass on an offscreen canvas to compute the required height
-  const measureCanvas = document.createElement('canvas');
-  const mCtx = measureCanvas.getContext('2d')!;
+  // --- Layout constants (shared by measure + draw passes) ---
   const bodyFontSize = 30;
-  const textMaxWidth = WIDTH - PADDING * 2 - 48 - 28; // card padding + accent bar
-  mCtx.font = `400 ${bodyFontSize}px ${fontFamily}`;
-  const lines = wrapText(mCtx, summary, textMaxWidth);
   const lineHeight = bodyFontSize * 1.5;
-
   const headerHeight = 140;
   const docTitleHeight = 56;
   const cardPadding = 48;
-  const textBlockHeight = lines.length * lineHeight + 40; // + internal box padding
+  const accentBarWidth = 6;
+  const accentGap = 22;
   const footerHeight = 100;
 
+  const cardWidth = WIDTH - PADDING * 2;
+  const textLeft = PADDING + cardPadding + accentBarWidth + accentGap;
+  const textRight = PADDING + cardWidth - cardPadding; // <-- the missing bit
+  const textMaxWidth = textRight - textLeft;
+
+  // Measure pass
+  const measureCanvas = document.createElement('canvas');
+  const mCtx = measureCanvas.getContext('2d')!;
+  mCtx.font = `400 ${bodyFontSize}px ${fontFamily}`;
+  const lines = wrapText(mCtx, summary, textMaxWidth);
+
+  const textBlockHeight = lines.length * lineHeight + 40;
   const cardHeight = docTitleHeight + textBlockHeight + cardPadding * 2;
   const height =
     headerHeight + cardHeight + footerHeight + PADDING * 2;
@@ -141,7 +148,7 @@ export async function generateSummaryImage({
 
   // Card
   const cardY = headerHeight;
-  roundRect(ctx, PADDING, cardY, WIDTH - PADDING * 2, cardHeight, CARD_RADIUS);
+  roundRect(ctx, PADDING, cardY, cardWidth, cardHeight, CARD_RADIUS);
   ctx.fillStyle = COLORS.card;
   ctx.fill();
 
@@ -157,14 +164,14 @@ export async function generateSummaryImage({
   // Accent bar
   const textBoxY = cardY + cardPadding + docTitleHeight;
   ctx.fillStyle = COLORS.primary;
-  ctx.fillRect(PADDING + cardPadding, textBoxY, 6, textBlockHeight - 20);
+  ctx.fillRect(PADDING + cardPadding, textBoxY, accentBarWidth, textBlockHeight - 20);
 
   // Summary text
   ctx.fillStyle = COLORS.text;
   ctx.font = `400 ${bodyFontSize}px ${fontFamily}`;
   let ty = textBoxY + bodyFontSize;
   for (const line of lines) {
-    ctx.fillText(line, PADDING + cardPadding + 28, ty);
+    ctx.fillText(line, textLeft, ty);
     ty += lineHeight;
   }
 
