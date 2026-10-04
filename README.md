@@ -31,7 +31,7 @@ QuizMe is an AI-powered web application that transforms any kind of documents in
   - [Retrieval-Augmented Generation (RAG)](#retrieval-augmented-generation-rag)
   - [Voice RAG Pipeline](#voice-rag-pipeline)
   - [AI Agents (CrewAI)](#ai-agents-crewai)
-  - [Model Context Protocol (MCP)](#model-context-protocol-mcp-planned)
+  <!-- - [Model Context Protocol (MCP)](#model-context-protocol-mcp-planned) -->
 - [Architecture](#architecture)
 - [UI Design](#ui-design)
 - [Setup](#setup)
@@ -399,13 +399,13 @@ generate:  retrieve broad chunks → Quiz Generator Agent → JSON questions
 evaluate:  retrieve targeted chunk per question → Answer Grader Agent → feedback + score_pct
 ```
 
-## Model Context Protocol (MCP) _(Planned)_
+<!-- ## Model Context Protocol (MCP) _(Planned)_
 
 - Structured tool-based interaction layer
 - Enables LLM to:
   - Access document tools
   - Maintain context
-  - Chain operations
+  - Chain operations -->
 
 ---
 
