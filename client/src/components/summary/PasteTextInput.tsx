@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import FileNamingModal, { detectExtension } from './FileNamingModal';
 
-const MAX_WORDS = 2000;
+const MIN_WORDS = 1000;
+const MAX_WORDS = 3000;
 
 function countWords(text: string): number {
   return text.trim() ? text.trim().split(/\s+/).length : 0;
@@ -27,6 +28,7 @@ export default function PasteTextInput({
 
   const wordCount = countWords(text);
   const isOverLimit = wordCount > MAX_WORDS;
+  const isUnderLimit = wordCount > 0 && wordCount < MIN_WORDS;
   const hasContent = text.trim().length > 0;
   const ext = detectExtension(text);
 
@@ -36,7 +38,7 @@ export default function PasteTextInput({
   };
 
   const handleSaveClick = () => {
-    if (hasContent && !isOverLimit) setShowModal(true);
+    if (hasContent && !isOverLimit && !isUnderLimit) setShowModal(true);
   };
 
   const handleConfirm = (name: string, resolvedExt: 'md' | 'txt') => {
@@ -68,7 +70,7 @@ export default function PasteTextInput({
           <span className='text-app-text-secondary text-sm'>Paste text</span>
           <span
             className={`text-sm tabular-nums ${
-              isOverLimit
+              isOverLimit || isUnderLimit
                 ? 'text-red-400'
                 : hasContent
                   ? 'text-green-400'
@@ -86,7 +88,7 @@ export default function PasteTextInput({
             placeholder={
               hasFiles
                 ? 'Paste another text to add a second text file…'
-                : 'Paste or type up to 2,000 words here…'
+                : 'Paste or type 1,000–3,000 words here…'
             }
             className='w-full bg-transparent px-4 py-2 text-app-text text-sm placeholder:text-app-text-secondary/45 resize-none focus:outline-none'
             rows={5}
@@ -94,14 +96,14 @@ export default function PasteTextInput({
           {/* Always rendered — disabled when nothing is typed yet */}
           <button
             onClick={handleSaveClick}
-            disabled={!hasContent || isOverLimit}
+            disabled={!hasContent || isOverLimit || isUnderLimit}
             className='absolute bottom-4 right-4 px-4 py-1.5 bg-purple-500 hover:bg-purple-600 disabled:opacity-30 disabled:cursor-not-allowed text-white text-xs rounded-lg font-medium transition-colors'
           >
             Save
           </button>
         </div>
         <div className='flex items-center justify-between px-4 py-3 border-t border-app-text-secondary/10'>
-          {hasContent && !isOverLimit ? (
+          {hasContent && !isOverLimit && !isUnderLimit ? (
             <span className='flex items-center gap-1.5 text-xs text-green-400'>
               <ion-icon name='checkmark-outline' style={{ fontSize: '13px' }} />
               {wordCount} words · will save as .{ext}
@@ -114,7 +116,9 @@ export default function PasteTextInput({
               />
               {isOverLimit
                 ? `Over ${MAX_WORDS} word limit`
-                : 'Plain text → .txt · README → .md'}
+                : isUnderLimit
+                  ? `At least ${MIN_WORDS} words required`
+                  : 'Plain text → .txt · README → .md'}
             </span>
           )}
         </div>

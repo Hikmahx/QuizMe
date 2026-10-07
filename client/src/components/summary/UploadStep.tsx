@@ -24,7 +24,7 @@ const UPLOAD_INFO: Record<string, { subtitle: string; bullets: string[] }> = {
     bullets: [
       '<strong>Multiple files supported</strong> — upload several documents and summarise all at once.',
       '<strong>PDF, DOCX, and TXT</strong> formats accepted. Max 20 MB per file.',
-      '<strong>Paste text</strong> below — up to 2,000 words. Name and save it as a file.',
+      '<strong>Paste text</strong> below — 1,000–3,000 words. Name and save it as a file.',
       'Your content is processed <strong>privately</strong> and never stored after your session ends.',
     ],
   },
@@ -33,7 +33,7 @@ const UPLOAD_INFO: Record<string, { subtitle: string; bullets: string[] }> = {
     bullets: [
       '<strong>Multiple files supported</strong> — ask questions across all your documents.',
       '<strong>PDF, DOCX, and TXT</strong> formats accepted. Max 20 MB per file.',
-      '<strong>Paste text</strong> below — up to 2,000 words. Name and save it as a file.',
+      '<strong>Paste text</strong> below — 1,000–3,000 words. Name and save it as a file.',
       // 'Questions are answered using <strong>RAG</strong> — grounded in your document context.',
     ],
   },
@@ -42,7 +42,7 @@ const UPLOAD_INFO: Record<string, { subtitle: string; bullets: string[] }> = {
     bullets: [
       '<strong>Multiple files supported</strong> — quiz across all your documents at once.',
       '<strong>PDF, DOCX, and TXT</strong> formats accepted. Max 20 MB per file.',
-      '<strong>Paste text</strong> below — up to 2,000 words. Name and save it as a file.',
+      '<strong>Paste text</strong> below — 1,000–3,000 words. Name and save it as a file.',
       'AI will generate <strong>tailored questions</strong> based on the content you upload.',
     ],
   },
