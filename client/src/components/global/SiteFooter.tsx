@@ -3,7 +3,7 @@ import Link from 'next/link';
 export default function SiteFooter() {
   return (
     <footer className='mt-auto w-full py-6 text-center absolute inset-x-0 bottom-0'>
-      <p className='text-sm text-app-text-secondary'>
+      <p className='text-[10px] font-thin text-app-text-secondary'>
         © {new Date().getFullYear()} QuizMe, all rights reserved. | Site by{' '}
         <Link
           href='https://github.com/Hikmahx'
