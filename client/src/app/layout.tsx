@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Rubik } from 'next/font/google';
 import './theme.css';
 import ThemeProvider from '@/components/ThemeProvider';
+import SiteFooter from '@/components/global/SiteFooter';
 import Script from 'next/script';
 import { metadata as seoMetadata, jsonLd } from './seo';
 
@@ -26,8 +27,11 @@ export default function RootLayout({
         />
         <div className='page-pattern absolute inset-0 z-0 pointer-events-none' />
 
-        <div className='relative z-10 max-w-screen-xl mx-auto px-4 lg:px-12 xl:px-[60px]'>
-          <ThemeProvider>{children}</ThemeProvider>
+        <div className='relative z-10 mx-auto flex min-h-screen w-full max-w-screen-xl flex-col px-4 lg:px-12 xl:px-[60px]'>
+          <ThemeProvider>
+            <div className='flex flex-1 flex-col'>{children}</div>
+          </ThemeProvider>
+          <SiteFooter />
         </div>
         <Script
           type='module'
