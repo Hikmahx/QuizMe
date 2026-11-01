@@ -41,7 +41,7 @@ export default function ThemeProvider({
   }
 
   return (
-    <div data-theme={isDark ? 'dark' : 'light'}>
+    <div className='flex flex-1 flex-col' data-theme={isDark ? 'dark' : 'light'}>
       {children}
     </div>
   )
