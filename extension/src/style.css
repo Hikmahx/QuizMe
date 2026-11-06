@@ -1,10 +1,56 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;700&display=swap");
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-#plasmo-shadow-container {
-  all: initial;
-  box-sizing: border-box;
+:root {
+  --app-bg: #f4f6fa;
+  --app-card: #ffffff;
+  --app-text: #313e51;
+  --app-text-secondary: #626c7f;
+}
+
+.dark {
+  --app-bg: #313e51;
+  --app-card: #3b4d66;
+  --app-text: #ffffff;
+  --app-text-secondary: #abc1e1;
+}
+
+@layer base {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+  html {
+    font-size: 16px;
+    background-color: var(--app-bg);
+    color: var(--app-text);
+  }
+  body {
+    font-family: "Rubik", ui-sans-serif, system-ui, sans-serif;
+    width: 384px;
+    height: 580px;
+    overflow: hidden;
+  }
+  #__plasmo {
+    height: 100%;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply rounded-xl bg-primary px-6 py-3 font-bold text-white transition hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-outline {
+    @apply rounded-xl border border-black/10 px-6 py-3 font-medium text-app-text transition hover:border-primary dark:border-white/15;
+  }
+  .card {
+    @apply rounded-2xl bg-app-card;
+  }
+  .tile {
+    @apply flex shrink-0 items-center justify-center rounded-lg;
+  }
 }
