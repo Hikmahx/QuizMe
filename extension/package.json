@@ -1,8 +1,8 @@
 {
   "name": "extension",
-  "displayName": "Extension",
+  "displayName": "QuizMe",
   "version": "0.0.1",
-  "description": "QuizMe's browser extension",
+  "description": "Summarize any article with QuizMe",
   "author": "Hikmahx",
   "scripts": {
     "dev": "plasmo dev",
@@ -13,7 +13,8 @@
     "plasmo": "0.90.5",
     "react": "18.2.0",
     "react-dom": "18.2.0",
-    "tailwindcss": "3.4.1"
+    "tailwindcss": "3.4.1",
+    "@mozilla/readability": "0.5.0"
   },
   "devDependencies": {
     "@ianvs/prettier-plugin-sort-imports": "4.1.1",
@@ -27,7 +28,8 @@
   },
   "manifest": {
     "host_permissions": [
-      "https://*/*"
+      "https://*/*",
+      "http://localhost:8000/*"
     ]
   }
 }
